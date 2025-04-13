@@ -1,0 +1,14 @@
+/* LayoutSidebar.css */
+.inactive-nav-item {
+    transition: all 0.2s ease;
+  }
+  
+  .inactive-nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    transform: translateX(4px);
+    cursor: pointer;
+  }
+  
+  .active-nav-item {
+    /* No hover effect for active items */
+  }
