@@ -1,6 +1,8 @@
+// App.jsx
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
+import Bundles from './pages/Bundles';// Add this import
 
 const router = createBrowserRouter([
   {
@@ -9,7 +11,11 @@ const router = createBrowserRouter([
     children: [
       {
         path: 'users',
-        element:<Users/>
+        element: <Users/>
+      },
+      {
+        path: 'bundles',
+        element: <Bundles/>
       },
       {
         path: '*',
