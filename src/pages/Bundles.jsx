@@ -4,7 +4,7 @@ import { Card, Button, Row, Col, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { PlusLg } from 'react-bootstrap-icons';
-import '../components/BundleButton.css';
+import '../components/BundleCreationButton.css'
 
 const Bundles = () => {
   const [bundles, setBundles] = useState([]);
@@ -68,7 +68,15 @@ const Bundles = () => {
               </Card.Body>
               <Card.Footer className="d-flex justify-content-end gap-2">
                 <Button variant="info" size="sm">View</Button>
-                <Button variant="warning" size="sm">Edit</Button>
+    
+                <Button 
+                variant="warning" 
+                size="sm"
+                as={Link} 
+                to={`/bundles/edit/${bundle.bundleID}`}
+                >
+                Edit
+                </Button>
               </Card.Footer>
             </Card>
           </Col>
