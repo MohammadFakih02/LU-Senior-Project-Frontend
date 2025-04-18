@@ -3,6 +3,8 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
 import Bundles from './pages/Bundles';// Add this import
+import BundleForm from './pages/BundleForm';
+
 
 const router = createBrowserRouter([
   {
@@ -16,6 +18,14 @@ const router = createBrowserRouter([
       {
         path: 'bundles',
         element: <Bundles/>
+      },
+      {
+        path: 'bundles/create',
+        element: <BundleForm />
+      },
+      {
+        path: 'bundles/edit/:bundleId',
+        element: <BundleForm />
       },
       {
         path: '*',
