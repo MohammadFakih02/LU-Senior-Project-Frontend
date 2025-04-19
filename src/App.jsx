@@ -4,6 +4,7 @@ import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
 import Bundles from './pages/Bundles';// Add this import
 import BundleForm from './pages/BundleForm';
+import UserForm from './pages/UserForm';
 
 
 const router = createBrowserRouter([
@@ -14,6 +15,14 @@ const router = createBrowserRouter([
       {
         path: 'users',
         element: <Users/>
+      },
+      {
+        path: 'users/edit/:userId',
+        element: <UserForm/>
+      },
+      {
+        path: 'users/create/',
+        element: <UserForm/>
       },
       {
         path: 'bundles',

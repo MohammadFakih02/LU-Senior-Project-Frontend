@@ -90,6 +90,8 @@ useEffect(() => {
     }
   };
 
+  
+
   const refreshPayments = async () => {
     setPaymentsLoading(true);
     try {
@@ -134,8 +136,26 @@ useEffect(() => {
     }
   };
 
-  
-  // Add to provider value
+  // Add these to your AppContext provider value
+const createUser = async (userData) => {
+  try {
+    await axios.post("http://localhost:8080/api/users", userData);
+    await refreshUsers();
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+const updateUser = async (userId, userData) => {
+  try {
+    await axios.put(`http://localhost:8080/api/users/${userId}`, userData);
+    await refreshUsers();
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+
 
   return (
     <AppContext.Provider value={{
@@ -144,6 +164,8 @@ useEffect(() => {
       usersLoading, 
       usersError, 
       refreshUsers,
+      createUser,
+      updateUser,
       
       // Payments
       payments, 
@@ -151,7 +173,6 @@ useEffect(() => {
       paymentsError, 
       refreshPayments,
       
-      // Bundles
       bundles, 
       bundlesLoading, 
       bundlesError, 

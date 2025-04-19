@@ -105,7 +105,7 @@ const Users = () => {
                     <Button variant="info" size="sm" as={Link} to={`/users/${user.id}`}>
                       View
                     </Button>
-                    <Button variant="warning" size="sm" as={Link} to={`/users/${user.id}/edit`}>
+                    <Button variant="warning" size="sm" as={Link} to={`/users/edit/${user.id}`}>
                       Edit
                     </Button>
                   </div>
