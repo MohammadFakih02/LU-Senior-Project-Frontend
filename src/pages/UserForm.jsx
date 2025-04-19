@@ -1,16 +1,16 @@
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Button, Card, Form, Row, Col, Alert, Badge } from 'react-bootstrap';
+import { Button, Card, Form, Row, Col, Alert, Badge, Spinner, Accordion } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import AppContext from '../context/AppContext';
 
 const UserForm = () => {
   const { 
-    users,
     bundles,
     bundlesLoading,
     createUser,
-    updateUser
+    updateUser,
+    fetchUserById
   } = useContext(AppContext);
   
   const { userId } = useParams();
@@ -18,6 +18,8 @@ const UserForm = () => {
   const isEditMode = !!userId;
   const [apiError, setApiError] = useState('');
   const [selectedBundles, setSelectedBundles] = useState([]);
+  const [isLoading, setIsLoading] = useState(isEditMode);
+  const [activeAccordionKey, setActiveAccordionKey] = useState(null);
 
   const { 
     register, 
@@ -26,38 +28,44 @@ const UserForm = () => {
     reset,
   } = useForm();
 
-  // Find the existing user
-  const existingUser = users.find(u => u.id === Number(userId));
-
   useEffect(() => {
     if (!isEditMode || !userId) return;
     
-    if (existingUser) {
-      reset({
-        firstName: existingUser.firstName,
-        lastName: existingUser.lastName,
-        email: existingUser.email,
-        phone: existingUser.phone,
-        address: existingUser.location?.address,
-        city: existingUser.location?.city,
-        street: existingUser.location?.street,
-        building: existingUser.location?.building,
-        floor: existingUser.location?.floor,
-      });
-      
-      // Set selected bundles if editing
-      if (existingUser.bundleSubscriptions) {
-        setSelectedBundles(existingUser.bundleSubscriptions.map(sub => ({
-          bundleId: sub.bundleId,
-          address: sub.location?.address || '',
-          city: sub.location?.city || '',
-          street: sub.location?.street || '',
-          building: sub.location?.building || '',
-          floor: sub.location?.floor || ''
-        })));
+    const loadUserData = async () => {
+      try {
+        const userData = await fetchUserById(userId);
+        
+        reset({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          phone: userData.phone,
+          address: userData.location?.address,
+          city: userData.location?.city,
+          street: userData.location?.street,
+          building: userData.location?.building,
+          floor: userData.location?.floor,
+        });
+        
+        if (userData.bundles && userData.bundles.length > 0) {
+          setSelectedBundles(userData.bundles.map(bundle => ({
+            bundleId: bundle.bundle.bundleId,
+            address: bundle.bundleLocation?.address || '',
+            city: bundle.bundleLocation?.city || '',
+            street: bundle.bundleLocation?.street || '',
+            building: bundle.bundleLocation?.building || '',
+            floor: bundle.bundleLocation?.floor || ''
+          })));
+        }
+      } catch (error) {
+        setApiError(error.message || 'Failed to load user data');
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [existingUser, isEditMode, reset, userId]);
+    };
+    
+    loadUserData();
+  }, [isEditMode, userId, reset, fetchUserById]);
 
   const onSubmit = async (data) => {
     try {
@@ -106,11 +114,17 @@ const UserForm = () => {
         building: '',
         floor: ''
       }]);
+      // Open the new accordion item
+      setActiveAccordionKey(bundleId);
     }
   };
 
   const handleRemoveBundle = (bundleId) => {
     setSelectedBundles(selectedBundles.filter(b => b.bundleId !== bundleId));
+    // Close accordion if the removed bundle was open
+    if (activeAccordionKey === bundleId) {
+      setActiveAccordionKey(null);
+    }
   };
 
   const handleBundleLocationChange = (bundleId, field, value) => {
@@ -119,7 +133,19 @@ const UserForm = () => {
     ));
   };
 
-  if (bundlesLoading) return <div>Loading...</div>;
+  const toggleAccordion = (key) => {
+    setActiveAccordionKey(activeAccordionKey === key ? null : key);
+  };
+
+  if (isLoading || bundlesLoading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
+        <Spinner animation="border" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </Spinner>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3">
@@ -273,79 +299,86 @@ const UserForm = () => {
               {selectedBundles.length > 0 && (
                 <div className="mt-3">
                   <Form.Label>Bundle Locations</Form.Label>
-                  {selectedBundles.map((bundle, index) => {
-                    const bundleInfo = bundles.find(b => (b.id || b.bundleId) === bundle.bundleId);
-                    return (
-                      <Card key={index} className="mb-3">
-                        <Card.Header className="d-flex justify-content-between align-items-center">
-                          <span>{bundleInfo?.name || `Bundle ${bundle.bundleId}`}</span>
-                          <Button 
-                            variant="danger" 
-                            size="sm" 
-                            onClick={() => handleRemoveBundle(bundle.bundleId)}
-                          >
-                            Remove
-                          </Button>
-                        </Card.Header>
-                        <Card.Body>
-                          <Row className="g-3">
-                            <Col md={6}>
-                              <Form.Group controlId={`bundleAddress-${index}`}>
-                                <Form.Label>Address</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  value={bundle.address}
-                                  onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'address', e.target.value)}
-                                  required
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group controlId={`bundleCity-${index}`}>
-                                <Form.Label>City</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  value={bundle.city}
-                                  onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'city', e.target.value)}
-                                  required
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                              <Form.Group controlId={`bundleStreet-${index}`}>
-                                <Form.Label>Street</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  value={bundle.street}
-                                  onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'street', e.target.value)}
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={3}>
-                              <Form.Group controlId={`bundleBuilding-${index}`}>
-                                <Form.Label>Building</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  value={bundle.building}
-                                  onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'building', e.target.value)}
-                                />
-                              </Form.Group>
-                            </Col>
-                            <Col md={3}>
-                              <Form.Group controlId={`bundleFloor-${index}`}>
-                                <Form.Label>Floor</Form.Label>
-                                <Form.Control
-                                  type="text"
-                                  value={bundle.floor}
-                                  onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'floor', e.target.value)}
-                                />
-                              </Form.Group>
-                            </Col>
-                          </Row>
-                        </Card.Body>
-                      </Card>
-                    );
-                  })}
+                  <Accordion activeKey={activeAccordionKey}>
+                    {selectedBundles.map((bundle, index) => {
+                      const bundleInfo = bundles.find(b => (b.id || b.bundleId) === bundle.bundleId);
+                      return (
+                        <Accordion.Item key={index} eventKey={bundle.bundleId}>
+                          <Accordion.Header onClick={() => toggleAccordion(bundle.bundleId)}>
+                            <div className="d-flex justify-content-between align-items-center w-100 pe-2">
+                              <span>{bundleInfo?.name || `Bundle ${bundle.bundleId}`}</span>
+                              <Button 
+                                variant="danger" 
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveBundle(bundle.bundleId);
+                                }}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </Accordion.Header>
+                          <Accordion.Body>
+                            <Row className="g-3">
+                              <Col md={6}>
+                                <Form.Group controlId={`bundleAddress-${index}`}>
+                                  <Form.Label>Address</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    value={bundle.address}
+                                    onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'address', e.target.value)}
+                                    required
+                                  />
+                                </Form.Group>
+                              </Col>
+                              <Col md={6}>
+                                <Form.Group controlId={`bundleCity-${index}`}>
+                                  <Form.Label>City</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    value={bundle.city}
+                                    onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'city', e.target.value)}
+                                    required
+                                  />
+                                </Form.Group>
+                              </Col>
+                              <Col md={6}>
+                                <Form.Group controlId={`bundleStreet-${index}`}>
+                                  <Form.Label>Street</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    value={bundle.street}
+                                    onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'street', e.target.value)}
+                                  />
+                                </Form.Group>
+                              </Col>
+                              <Col md={3}>
+                                <Form.Group controlId={`bundleBuilding-${index}`}>
+                                  <Form.Label>Building</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    value={bundle.building}
+                                    onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'building', e.target.value)}
+                                  />
+                                </Form.Group>
+                              </Col>
+                              <Col md={3}>
+                                <Form.Group controlId={`bundleFloor-${index}`}>
+                                  <Form.Label>Floor</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    value={bundle.floor}
+                                    onChange={(e) => handleBundleLocationChange(bundle.bundleId, 'floor', e.target.value)}
+                                  />
+                                </Form.Group>
+                              </Col>
+                            </Row>
+                          </Accordion.Body>
+                        </Accordion.Item>
+                      );
+                    })}
+                  </Accordion>
                 </div>
               )}
             </div>

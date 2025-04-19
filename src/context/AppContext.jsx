@@ -155,6 +155,16 @@ const updateUser = async (userId, userData) => {
   }
 };
 
+const fetchUserById = async (userId) => {
+  try {
+    const response = await axios.get(`http://localhost:8080/api/users/${userId}`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
+
 
 
   return (
@@ -166,6 +176,7 @@ const updateUser = async (userId, userData) => {
       refreshUsers,
       createUser,
       updateUser,
+      fetchUserById,
       
       // Payments
       payments, 

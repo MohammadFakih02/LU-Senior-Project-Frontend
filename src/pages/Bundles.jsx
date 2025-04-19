@@ -1,8 +1,6 @@
 // pages/Bundles.js
-import { useEffect, useState } from 'react';
 import { Card, Button, Row, Col, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { PlusLg } from 'react-bootstrap-icons';
 import '../components/BundleCreationButton.css';
 import { useContext } from 'react';
@@ -48,7 +46,7 @@ const Bundles = () => {
                   </div>
                   <div className="d-flex justify-content-between">
                     <span>Data Cap:</span>
-                    <strong>{bundle.datacap}GB</strong>
+                    <strong>{bundle.dataCap === 0 ? 'unlimited' : `${bundle.datacap}GB`}</strong>
                   </div>
                   <div className="d-flex justify-content-between">
                     <span>Speed:</span>
@@ -59,7 +57,6 @@ const Bundles = () => {
               <Card.Footer className="d-flex justify-content-end gap-2">
                 <Button variant="info" size="sm">View</Button>
     
-                // In the Edit button link, change bundleId to id:
                 <Button 
                 variant="warning" 
                 size="sm"
