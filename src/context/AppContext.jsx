@@ -24,6 +24,7 @@ export const AppProvider = ({ children }) => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/users");
+        console.log('Users API Response:', response.data); // Add for debugging
         setUsers(response.data);
         setUsersError(null);
       } catch (err) {
@@ -72,6 +73,7 @@ useEffect(() => {
   
   fetchBundles();
   console.log(bundles);
+// eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
   // Refresh functions for each endpoint

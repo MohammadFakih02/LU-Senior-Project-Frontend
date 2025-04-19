@@ -1,6 +1,6 @@
 // pages/User.js
 import { useEffect, useState } from 'react';
-import { Table, Button, Form } from 'react-bootstrap'; // Added Form component
+import { Table, Button, Form, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
@@ -8,7 +8,7 @@ const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState(''); // New state for search
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -28,20 +28,25 @@ const Users = () => {
   // Filter users based on search term
   const filteredUsers = users.filter(user => {
     const searchLower = searchTerm.toLowerCase();
-    return Object.values(user).some(value => 
-      String(value).toLowerCase().includes(searchLower)
+    return (
+      user.firstName.toLowerCase().includes(searchLower) ||
+      user.lastName.toLowerCase().includes(searchLower) ||
+      user.email.toLowerCase().includes(searchLower) ||
+      (user.phone && user.phone.toLowerCase().includes(searchLower)) ||
+      (user.bundleNames && user.bundleNames.some(bundle => 
+        bundle.toLowerCase().includes(searchLower)
+      ))
     );
   });
 
-  if (loading) return <div>Loading users...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (loading) return <div className="p-3">Loading users...</div>;
+  if (error) return <div className="p-3 text-danger">Error: {error}</div>;
 
   return (
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1>User Management</h1>
         <div className="d-flex align-items-center gap-3">
-          {/* Search Input */}
           <Form.Control
             type="text"
             placeholder="Search users..."
@@ -55,19 +60,16 @@ const Users = () => {
         </div>
       </div>
 
-      {/* Scrollable Table Container */}
-      <div style={{ maxHeight: '550px', overflowY: 'auto', border: '1px solid #dee2e6' }}>
-        <Table striped bordered hover responsive>
+      <div style={{ maxHeight: '550px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
+        <Table striped bordered hover responsive className="mb-0">
           <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
             <tr>
-              <th>#</th>
+              <th>ID</th>
               <th>Name</th>
               <th>Email</th>
-              <th>Landline</th>
               <th>Phone</th>
-              <th>Consumption</th>
-              <th>Bill</th>
-              <th>Subscription Date</th>
+              <th>Bundles</th>
+              <th>City</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -76,21 +78,37 @@ const Users = () => {
             {filteredUsers.map((user) => (
               <tr key={user.id}>
                 <td>{user.id}</td>
-                <td>{user.firstName + " " + user.lastName}</td>
+                <td>{`${user.firstName} ${user.lastName}`}</td>
                 <td>{user.email}</td>
-                <td>{user.landLine}</td>
-                <td>{user.phone}</td>
-                <td>{user.consumption}</td>
-                <td>{user.bill}</td>
-                <td>{user.subscriptionDate}</td>
-                <td>{user.status}</td>
+                <td>{user.phone || '-'}</td>
                 <td>
-                  <Button variant="info" size="sm" className="me-2">
-                    View
-                  </Button>
-                  <Button variant="warning" size="sm">
-                    Edit
-                  </Button>
+                  {user.bundleNames && user.bundleNames.length > 0 ? (
+                    <div className="d-flex flex-wrap gap-1">
+                      {user.bundleNames.map((bundle, index) => (
+                        <Badge key={index} bg="info" className="text-truncate" style={{ maxWidth: '150px' }}>
+                          {bundle}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    '-'
+                  )}
+                </td>
+                <td>{user.location?.city || '-'}</td>
+                <td>
+                  <Badge bg={user.status === 'ACTIVE' ? 'success' : 'secondary'}>
+                    {user.status}
+                  </Badge>
+                </td>
+                <td>
+                  <div className="d-flex gap-2">
+                    <Button variant="info" size="sm" as={Link} to={`/users/${user.id}`}>
+                      View
+                    </Button>
+                    <Button variant="warning" size="sm" as={Link} to={`/users/${user.id}/edit`}>
+                      Edit
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -102,16 +120,6 @@ const Users = () => {
           </div>
         )}
       </div>
-
-      <style>
-        {`
-          thead {
-            position: sticky;
-            top: 0;
-            z-index: 1;
-          }
-        `}
-      </style>
     </div>
   );
 };
