@@ -102,9 +102,9 @@ const Users = () => {
                 </td>
                 <td>
                   <div className="d-flex gap-2">
-                    <Button variant="info" size="sm" as={Link} to={`/users/${user.id}`}>
-                      View
-                    </Button>
+                  <Button variant="info" size="sm" as={Link} to={`/users/${user.id}`}>
+                    View
+                  </Button>
                     <Button variant="warning" size="sm" as={Link} to={`/users/edit/${user.id}`}>
                       Edit
                     </Button>

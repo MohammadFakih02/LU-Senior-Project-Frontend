@@ -5,6 +5,7 @@ import Users from './pages/Users';
 import Bundles from './pages/Bundles';// Add this import
 import BundleForm from './pages/BundleForm';
 import UserForm from './pages/UserForm';
+import UserDetails from './pages/UserDetails';
 
 
 const router = createBrowserRouter([
@@ -23,6 +24,10 @@ const router = createBrowserRouter([
       {
         path: 'users/create/',
         element: <UserForm/>
+      },
+      {
+        path:"/users/:userId",
+        element:<UserDetails />
       },
       {
         path: 'bundles',
