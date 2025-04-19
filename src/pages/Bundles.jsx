@@ -4,30 +4,20 @@ import { Card, Button, Row, Col, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { PlusLg } from 'react-bootstrap-icons';
-import '../components/BundleCreationButton.css'
+import '../components/BundleCreationButton.css';
+import { useContext } from 'react';
+import AppContext from '../context/AppContext';
 
 const Bundles = () => {
-  const [bundles, setBundles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    bundles, 
+    bundlesLoading,
+    bundlesError,
+  } = useContext(AppContext);
 
-  useEffect(() => {
-    const fetchBundles = async () => {
-      try {
-        const response = await axios.get("http://localhost:8080/api/bundles");
-        setBundles(response.data);
-      } catch (err) {
-        setError(err.message);
-        console.error('API Error:', err.response?.data || err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBundles();
-  }, []);
 
-  if (loading) return <div>Loading bundles...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (bundlesLoading) return <div>Loading bundles...</div>;
+  if (bundlesError) return <div>Error: {bundlesError}</div>;
 
   return (
     <div className="p-3">
@@ -39,7 +29,7 @@ const Bundles = () => {
 
         {/* Existing Bundles */}
         {bundles.map((bundle) => (
-          <Col key={bundle.bundleID}>
+          <Col key={bundle.bundleId}>
             <Card className="h-100 shadow-sm">
               <Card.Header className="d-flex justify-content-between align-items-center bg-dark text-white">
                 <h5 className="mb-0">{bundle.name}</h5>
@@ -69,15 +59,16 @@ const Bundles = () => {
               <Card.Footer className="d-flex justify-content-end gap-2">
                 <Button variant="info" size="sm">View</Button>
     
+                // In the Edit button link, change bundleId to id:
                 <Button 
                 variant="warning" 
                 size="sm"
                 as={Link} 
-                to={`/bundles/edit/${bundle.bundleID}`}
+                to={`/bundles/edit/${bundle.id || bundle.bundleId}`}
                 >
-                Edit
+                  Edit
                 </Button>
-              </Card.Footer>
+                </Card.Footer>
             </Card>
           </Col>
         ))}

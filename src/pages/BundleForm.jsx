@@ -1,64 +1,84 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Button, Card, Form, Row, Col, Alert } from 'react-bootstrap';
-import axios from 'axios';
 import { useForm } from 'react-hook-form';
+import AppContext from '../context/AppContext';
 
 const BundleForm = () => {
-  const { bundleId } = useParams();
-  const navigate = useNavigate();
-  const isEditMode = !!bundleId;
-  const [apiError, setApiError] = useState('');
+    const { 
+        bundles,
+        bundlesLoading,
+        bundlesError,
+        createBundle, 
+        updateBundle 
+    } = useContext(AppContext);
+    
+    const { bundleId } = useParams();
+    const navigate = useNavigate();
+    const isEditMode = !!bundleId;
+    const [apiError, setApiError] = useState('');
 
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors }, 
-    reset 
-  } = useForm();
-
-  useEffect(() => {
-    if (!isEditMode) return;
-
-    const fetchBundle = async () => {
+    const { 
+        register, 
+        handleSubmit, 
+        formState: { errors }, 
+        reset 
+    } = useForm();
+    const onSubmit = async (data) => {
       try {
-        const response = await axios.get(`http://localhost:8080/api/bundles/${bundleId}`);
-        reset(response.data);
+        if (isEditMode) {
+          await updateBundle(existingBundle.id || existingBundle.bundleId, data);
+        } else {
+          await createBundle(data);
+        }
+        navigate('/bundles');
       } catch (error) {
-        setApiError('Failed to load bundle data');
+        setApiError(error.message || 'An error occurred');
       }
-    };
-
-    fetchBundle();
-  }, [bundleId, reset, isEditMode]);
-
-  const onSubmit = async (data) => {
-    try {
-      if (isEditMode) {
-        await axios.put(`http://localhost:8080/api/bundles/${bundleId}`, data);
-      } else {
-        await axios.post("http://localhost:8080/api/bundles", data);
-      }
-      navigate('/bundles');
-    } catch (error) {
-      setApiError(error.response?.data?.message || 'An error occurred');
     }
-  };
+    // Find the existing bundle from context
+    
+    // Change existingBundle lookup to prioritize 'id'
+const existingBundle = bundles.find(b => b.id === Number(bundleId)) || bundles.find(b => b.bundleId === Number(bundleId));
 
-  return (
-    <div className="p-3">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="mb-0">{isEditMode ? 'Edit Bundle' : 'Create New Bundle'}</h1>
-        <Button as={Link} to="/bundles" variant="secondary" size="sm">
-          Back to Bundles
-        </Button>
-      </div>
 
-      <Card className="shadow-sm">
-        <Card.Body>
-          {apiError && <Alert variant="danger" className="mb-4">{apiError}</Alert>}
+    useEffect(() => {
+      if (!isEditMode || !bundleId) return;
+      
+      if (bundlesLoading) return;
+    
+      if (existingBundle) {
+        reset({
+          name: existingBundle.name,
+          description: existingBundle.description,
+          type: existingBundle.type,
+          price: existingBundle.price,
+          dataCap: existingBundle.dataCap || existingBundle.datacap,
+          speed: existingBundle.speed
+        });
+      } else {
+        setApiError('Bundle data not found in context');
+      }
+    }, [bundlesLoading, existingBundle, isEditMode, reset, bundleId]);
 
-          <Form onSubmit={handleSubmit(onSubmit)}>
+    // Add loading/error states
+    if (bundlesLoading) return <div>Loading...</div>;
+    if (bundlesError) return <div>Error: {bundlesError}</div>;
+    if (isEditMode && !existingBundle) return <div>Bundle not found</div>;
+    return (
+        <div className="p-3">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <h1 className="mb-0">{isEditMode ? 'Edit Bundle' : 'Create New Bundle'}</h1>
+                <Button as={Link} to="/bundles" variant="secondary" size="sm">
+                    Back to Bundles
+                </Button>
+            </div>
+
+            <Card className="shadow-sm">
+                <Card.Body>
+                    {apiError && <Alert variant="danger" className="mb-4">{apiError}</Alert>}
+
+                    <Form onSubmit={handleSubmit(onSubmit)}>
             <Row className="g-4">
               <Col md={6}>
                 <Form.Group controlId="name">
@@ -146,10 +166,10 @@ const BundleForm = () => {
               </Button>
             </div>
           </Form>
-        </Card.Body>
-      </Card>
-    </div>
-  );
+                </Card.Body>
+            </Card>
+        </div>
+    );
 };
 
 export default BundleForm;

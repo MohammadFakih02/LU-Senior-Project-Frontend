@@ -55,23 +55,24 @@ export const AppProvider = ({ children }) => {
     fetchPayments();
   }, []);
 
-  // Fetch bundles
-  useEffect(() => {
-    const fetchBundles = async () => {
-      try {
-        const response = await axios.get("http://localhost:8080/api/bundles");
-        setBundles(response.data);
-        setBundlesError(null);
-      } catch (err) {
-        setBundlesError(err.message);
-        console.error('Bundles API Error:', err.response?.data || err.message);
-      } finally {
-        setBundlesLoading(false);
-      }
-    };
-    
-    fetchBundles();
-  }, []);
+useEffect(() => {
+  const fetchBundles = async () => {
+    try {
+      const response = await axios.get("http://localhost:8080/api/bundles");
+      console.log('Bundles API Response:', response.data); // Add for debugging
+      setBundles(response.data);
+      setBundlesError(null);
+    } catch (err) {
+      setBundlesError(err.message);
+      console.error('Bundles API Error:', err.response?.data || err.message);
+    } finally {
+      setBundlesLoading(false);
+    }
+  };
+  
+  fetchBundles();
+  console.log(bundles);
+}, []);
 
   // Refresh functions for each endpoint
   const refreshUsers = async () => {
@@ -113,6 +114,27 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const createBundle = async (bundleData) => {
+    try {
+      await axios.post("http://localhost:8080/api/bundles", bundleData);
+      await refreshBundles();
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  };
+  
+  const updateBundle = async (bundleId, bundleData) => {
+    try {
+      await axios.put(`http://localhost:8080/api/bundles/${bundleId}`, bundleData);
+      await refreshBundles();
+    } catch (error) {
+      throw error.response?.data || error;
+    }
+  };
+
+  
+  // Add to provider value
+
   return (
     <AppContext.Provider value={{
       // Users
@@ -131,7 +153,10 @@ export const AppProvider = ({ children }) => {
       bundles, 
       bundlesLoading, 
       bundlesError, 
-      refreshBundles
+      refreshBundles, 
+
+      createBundle,
+      updateBundle
     }}>
       {children}
     </AppContext.Provider>
