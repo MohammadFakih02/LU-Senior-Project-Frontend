@@ -1,0 +1,13 @@
+/* Add these styles to your CSS file */
+.transform-scale {
+    transform: scale(1.02);
+    transition: transform 0.3s ease;
+  }
+  
+  .transition-all {
+    transition: all 0.3s ease;
+  }
+  
+  .cursor-pointer {
+    cursor: pointer;
+  }
