@@ -39,6 +39,7 @@ const Payments = () => {
   const headerConfig = [
     { key: 'paymentId', label: 'Payment ID' },
     { key: 'userName', label: 'User' },
+    { key: 'userId', label: 'User ID' },
     { key: 'amount', label: 'Amount' },
     { key: 'paymentDate', label: 'Payment Date' },
     { key: 'dueDate', label: 'Due Date' }
@@ -51,6 +52,7 @@ const Payments = () => {
     const getValue = (payment, key) => {
       switch (key) {
         case 'paymentId': return payment.paymentId;
+        case 'userId': return payment.userId;
         case 'userName': return payment.userName?.toLowerCase() || '';
         case 'amount': return payment.amount;
         case 'paymentDate': return payment.paymentDate ? new Date(payment.paymentDate) : new Date(0);
@@ -75,6 +77,7 @@ const Payments = () => {
   const filteredPayments = sortedPayments.filter(payment => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = (
+      payment.userId?.toString().includes(searchTerm) ||
       payment.userName?.toLowerCase().includes(searchLower) ||
       payment.paymentMethod?.toLowerCase().includes(searchLower) ||
       payment.status?.toLowerCase().includes(searchLower) ||
@@ -229,7 +232,7 @@ const Payments = () => {
         <Table striped bordered hover responsive className="mb-0">
         <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
             <tr>
-              {['paymentId', 'userName', 'amount', 'paymentDate', 'dueDate'].map((key) => (
+              {['paymentId', 'userId', 'userName', 'amount', 'paymentDate', 'dueDate'].map((key) => (
                 <th 
                   key={key}
                   onClick={() => handleSort(key)}
@@ -248,6 +251,7 @@ const Payments = () => {
             {currentItems.map((payment) => (
               <tr key={payment.paymentId}>
                 <td>{payment.paymentId}</td>
+                <td>{payment.userId}</td>
                 <td>{payment.userName || '-'}</td>
                 <td>${payment.amount?.toFixed(2)}</td>
                 <td>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleString() : '-'}</td>
