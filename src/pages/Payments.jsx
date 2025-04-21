@@ -1,8 +1,9 @@
 // pages/Payments.jsx
-import { useState, useContext } from 'react';
+import { useState, useContext, useCallback} from 'react';
 import { Table, Form, Badge, Pagination, Stack, Button, Dropdown, Alert, Spinner } from 'react-bootstrap';
 import AppContext from '../context/AppContext';
 import "../components/Payment.css"
+import PaymentConfirmationModal from './PaymentConfirmationModal';
 
 const Payments = () => {
   const { 
@@ -21,11 +22,44 @@ const Payments = () => {
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [selectedMethods, setSelectedMethods] = useState([]);
+  const [selectedPayment, setSelectedPayment] = useState(null);;
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Filter options
   const statusOptions = ['PAID', 'PENDING', 'UNPAID'];
   const bundleOptions = [...new Set(payments.map(p => p.bundleName))].filter(Boolean);
+  const { updatePaymentStatus } = useContext(AppContext);
   const methodOptions = [...new Set(payments.map(p => p.paymentMethod))].filter(Boolean);
+
+  // Double click handler
+  const handleRowDoubleClick = useCallback((payment) => {
+    if (payment.status !== 'PAID') {
+      setSelectedPayment(payment);
+      setShowConfirmModal(true);
+    }
+  }, []);
+
+  // Confirm payment handler
+  const handleConfirmPayment = async (updateData) => {
+    setIsUpdating(true);
+    try {
+      // Only send payment method if changed
+      const payload = {
+        paymentMethod: updateData.paymentMethod || selectedPayment.paymentMethod
+      };
+      
+      await updatePaymentStatus(selectedPayment.paymentId, payload);
+      setShowConfirmModal(false);
+    } catch (error) {
+      console.error('Payment update failed:', error);
+      alert(`Payment update failed: ${error.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -178,6 +212,8 @@ const Payments = () => {
       </div>
     );
 
+    
+
   return (
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -232,7 +268,18 @@ const Payments = () => {
         <Table striped bordered hover responsive className="mb-0">
         <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
             <tr>
-              {['paymentId', 'userId', 'userName', 'amount', 'paymentDate', 'dueDate'].map((key) => (
+              {['paymentId', 'userId', 'userName'].map((key) => (
+                <th 
+                  key={key}
+                  onClick={() => handleSort(key)}
+                  style={{ cursor: 'pointer', minWidth: 120 }}
+                >
+                  {key.replace(/([A-Z])/g, ' $1').toUpperCase()}
+                  {getSortIndicator(key)}
+                </th>
+              ))}
+              <th>Bundle</th>
+              {['amount', 'paymentDate', 'dueDate'].map((key) => (
                 <th 
                   key={key}
                   onClick={() => handleSort(key)}
@@ -244,15 +291,21 @@ const Payments = () => {
               ))}
               <th>Method</th>
               <th>Status</th>
-              <th>Bundle</th>
             </tr>
           </thead>
           <tbody>
             {currentItems.map((payment) => (
-              <tr key={payment.paymentId}>
+              <tr key={payment.paymentId}
+              onDoubleClick={() => handleRowDoubleClick(payment)}
+            style={{
+              cursor: payment.status !== 'PAID' ? 'pointer' : 'default',
+              backgroundColor: payment.status === 'PAID' ? '#f8f9fa' : 'inherit'
+            }}
+                >
                 <td>{payment.paymentId}</td>
                 <td>{payment.userId}</td>
                 <td>{payment.userName || '-'}</td>
+                <td>{payment.bundleName || '-'}</td>
                 <td>${payment.amount?.toFixed(2)}</td>
                 <td>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleString() : '-'}</td>
                 <td>{new Date(payment.dueDate).toLocaleString()}</td>
@@ -265,10 +318,20 @@ const Payments = () => {
                     {payment.status}
                   </Badge>
                 </td>
-                <td>{payment.bundleName || '-'}</td>
               </tr>
             ))}
           </tbody>
+          <PaymentConfirmationModal
+            show={showConfirmModal && !!selectedPayment}
+            onHide={() => {
+                setShowConfirmModal(false);
+                setSelectedPayment(null);
+            }}
+            payment={selectedPayment}
+            methods={methodOptions}
+            onConfirm={handleConfirmPayment}
+            isLoading={isUpdating}
+            />
         </Table>
         {filteredPayments.length === 0 && (
           <div className="text-center p-3 text-muted">

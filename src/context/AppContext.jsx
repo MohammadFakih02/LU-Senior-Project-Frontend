@@ -163,7 +163,15 @@ const fetchUserById = async (userId) => {
     throw error.response?.data || error;
   }
 };
-
+const updatePaymentStatus = async (paymentId, paymentData) => {
+  try {
+    // Change to POST request for processPayment endpoint
+    await axios.post(`http://localhost:8080/api/payments/${paymentId}/process`, paymentData);
+    await refreshPayments();
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
 
 
 
@@ -183,6 +191,7 @@ const fetchUserById = async (userId) => {
       paymentsLoading, 
       paymentsError, 
       refreshPayments,
+      updatePaymentStatus,
       
       bundles, 
       bundlesLoading, 
@@ -191,6 +200,7 @@ const fetchUserById = async (userId) => {
 
       createBundle,
       updateBundle
+
     }}>
       {children}
     </AppContext.Provider>
