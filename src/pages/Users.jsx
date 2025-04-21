@@ -1,72 +1,86 @@
-import { useEffect, useState } from 'react';
-import { Table, Button, Form, Badge, Pagination, Spinner, Alert, Card } from 'react-bootstrap';
+import { useEffect, useState, useContext } from 'react';
+import { Table, Button, Form, Badge, Pagination, Spinner, Alert, Card, Stack, Dropdown } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Tooltip } from 'react-tippy';
 import 'react-tippy/dist/tippy.css';
+import AppContext from '../context/AppContext';
+import { ArrowClockwise } from 'react-bootstrap-icons';
 
 const Users = () => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { 
+    users, 
+    usersLoading, 
+    usersError, 
+    refreshUsers 
+  } = useContext(AppContext);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const usersPerPage = 10;
+  
+  // New state for sorting and filtering
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedCities, setSelectedCities] = useState([]);
+  const [selectedBundles, setSelectedBundles] = useState([]);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get("http://localhost:8080/api/users");
-        setUsers(response.data);
-      } catch (err) {
-        setError(err.message);
-        console.error('API Error:', err.response?.data || err.message);
-      } finally {
-        setLoading(false);
+  // Filter options
+  const statusOptions = [...new Set(users.map(u => u.status))].filter(Boolean);
+  const cityOptions = [...new Set(users.map(u => u.location?.city).filter(Boolean))];
+  const bundleOptions = [...new Set(users.flatMap(u => u.bundleNames || []).filter(Boolean))];
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshUsers();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Sorting logic
+  const sortedUsers = [...users].sort((a, b) => {
+    if (!sortKey) return 0;
+    
+    const getValue = (user, key) => {
+      switch (key) {
+        case 'id': return user.id;
+        case 'name': return `${user.firstName} ${user.lastName}`.toLowerCase();
+        case 'email': return user.email?.toLowerCase() || '';
+        case 'phone': return user.phone?.toLowerCase() || '';
+        case 'city': return user.location?.city?.toLowerCase() || '';
+        case 'status': return user.status?.toLowerCase() || '';
+        default: return '';
       }
     };
-    fetchUsers();
-  }, []);
 
-  const TruncatedText = ({ text, maxWidth = 150, className = '' }) => (
-    <Tooltip
-      title={text}
-      position="top"
-      trigger="mouseenter"
-      animation="scale"
-      arrow={true}
-      duration={200}
-    >
-      <span
-        className={`text-truncate d-inline-block ${className}`}
-        style={{ 
-          maxWidth: `${maxWidth}px`,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          cursor: 'help',
-          verticalAlign: 'middle'
-        }}
-      >
-        {text}
-      </span>
-    </Tooltip>
-  );
+    const valueA = getValue(a, sortKey);
+    const valueB = getValue(b, sortKey);
+    
+    if (typeof valueA === 'number') {
+      return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+    }
+    return valueA.localeCompare(valueB) * (sortDirection === 'asc' ? 1 : -1);
+  });
 
-  const filteredUsers = users.filter(user => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-    if (!normalizedSearch) return true;
+  // Filtering logic
+  const filteredUsers = sortedUsers.filter(user => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = (
+      `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchLower) ||
+      user.email?.toLowerCase().includes(searchLower) ||
+      user.phone?.toLowerCase().includes(searchLower) ||
+      user.location?.city?.toLowerCase().includes(searchLower) ||
+      (user.bundleNames?.some(b => b.toLowerCase().includes(searchLower)) ||
+      user.status?.toLowerCase().includes(searchLower)
+    ));
 
-    const userData = [
-      user.firstName?.toLowerCase() || '',
-      user.lastName?.toLowerCase() || '',
-      user.email?.toLowerCase() || '',
-      user.phone?.toLowerCase() || '',
-      user.location?.city?.toLowerCase() || '',
-      ...(user.bundleNames?.map(b => b.toLowerCase()) || [])
-    ].join(' ');
-
-    return userData.includes(normalizedSearch);
+    return matchesSearch &&
+      (selectedStatuses.length === 0 || selectedStatuses.includes(user.status)) &&
+      (selectedCities.length === 0 || (user.location?.city && selectedCities.includes(user.location.city))) &&
+      (selectedBundles.length === 0 || (user.bundleNames && user.bundleNames.some(b => selectedBundles.includes(b))));
   });
 
   const indexOfLastUser = currentPage * usersPerPage;
@@ -76,20 +90,94 @@ const Users = () => {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // Sort handler
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  // Filter toggle handler
+  const toggleFilter = (value, filterType) => {
+    const setters = {
+      status: setSelectedStatuses,
+      city: setSelectedCities,
+      bundle: setSelectedBundles
+    };
+
+    setters[filterType](prev => 
+      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
+    );
+    setCurrentPage(1);
+  };
+
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedStatuses([]);
+    setSelectedCities([]);
+    setSelectedBundles([]);
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  // Sort indicator
+  const getSortIndicator = (key) => 
+    sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '';
+
+  // Multi-select dropdown component
+  const MultiSelectDropdown = ({ 
+    options, 
+    selected, 
+    onToggle, 
+    label, 
+    variant = 'outline-primary' 
+  }) => (
+    <Dropdown autoClose="outside">
+      <Dropdown.Toggle variant={variant} className="me-2">
+        {label} {selected.length > 0 && `(${selected.length})`}
+      </Dropdown.Toggle>
+      <Dropdown.Menu 
+        style={{ maxHeight: '300px', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {options.map(option => (
+          <Dropdown.ItemText 
+            key={option} 
+            className="px-3 py-1"
+            onClick={(e) => e.preventDefault()}
+          >
+            <Form.Check
+              label={option}
+              checked={selected.includes(option)}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggle(option);
+              }}
+            />
+          </Dropdown.ItemText>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, selectedStatuses, selectedCities, selectedBundles]);
 
-  if (loading) return (
+  if (usersLoading) return (
     <div className="d-flex justify-content-center align-items-center" style={{ height: '300px' }}>
       <Spinner animation="border" variant="primary" />
     </div>
   );
 
-  if (error) return (
+  if (usersError) return (
     <div className="p-3">
-      <Alert variant="danger">{error}</Alert>
-      <Button variant="secondary" onClick={() => window.location.reload()}>
+      <Alert variant="danger">{usersError}</Alert>
+      <Button variant="secondary" onClick={refreshUsers}>
         Retry
       </Button>
     </div>
@@ -99,18 +187,63 @@ const Users = () => {
     <div className="p-0">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="mb-0">User Management</h1>
-        <div className="d-flex align-items-center gap-3">
-          <Form.Control
-            type="text"
-            placeholder="Search users..."
-            style={{ width: '300px' }}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+        <Form.Control
+          type="text"
+          placeholder="Search users..."
+          style={{ width: '300px' }}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {/* Filter Controls */}
+      <div className="mb-4">
+        <Stack direction="horizontal" gap={3} className="flex-wrap">
+          <MultiSelectDropdown
+            options={statusOptions}
+            selected={selectedStatuses}
+            onToggle={(value) => toggleFilter(value, 'status')}
+            label="Status"
           />
+
+          <MultiSelectDropdown
+            options={cityOptions}
+            selected={selectedCities}
+            onToggle={(value) => toggleFilter(value, 'city')}
+            label="City"
+            variant="outline-secondary"
+          />
+
+          <MultiSelectDropdown
+            options={bundleOptions}
+            selected={selectedBundles}
+            onToggle={(value) => toggleFilter(value, 'bundle')}
+            label="Bundle"
+            variant="outline-success"
+          />
+
+          <Button 
+            variant="outline-danger"
+            onClick={clearAllFilters}
+            disabled={!selectedStatuses.length && !selectedCities.length && !selectedBundles.length && !searchTerm}
+          >
+            Clear Filters
+          </Button>
+
+          <Button 
+            variant="outline-secondary" 
+            onClick={handleRefresh}
+            disabled={isRefreshing || usersLoading}
+            className="ms-auto"
+          >
+            <ArrowClockwise className={`me-1 ${isRefreshing ? 'spin' : ''}`} />
+            Refresh
+          </Button>
+
           <Button as={Link} to="/users/create" variant="primary">
             Add New User
           </Button>
-        </div>
+        </Stack>
       </div>
 
       <Card className="shadow-sm mb-4">
@@ -118,13 +251,43 @@ const Users = () => {
           <Table striped bordered hover className="mb-0">
             <thead className="table-dark">
               <tr>
-                <th style={{ width: '5%', minWidth: '50px' }}>ID</th>
-                <th style={{ width: '15%', minWidth: '150px' }}>Name</th>
-                <th style={{ width: '20%', minWidth: '200px' }}>Email</th>
-                <th style={{ width: '14%', minWidth: '120px' }}>Phone</th>
+                <th 
+                  style={{ width: '5%', minWidth: '50px', cursor: 'pointer' }}
+                  onClick={() => handleSort('id')}
+                >
+                  ID{getSortIndicator('id')}
+                </th>
+                <th 
+                  style={{ width: '15%', minWidth: '150px', cursor: 'pointer' }}
+                  onClick={() => handleSort('name')}
+                >
+                  Name{getSortIndicator('name')}
+                </th>
+                <th 
+                  style={{ width: '20%', minWidth: '200px', cursor: 'pointer' }}
+                  onClick={() => handleSort('email')}
+                >
+                  Email{getSortIndicator('email')}
+                </th>
+                <th 
+                  style={{ width: '14%', minWidth: '120px', cursor: 'pointer' }}
+                  onClick={() => handleSort('phone')}
+                >
+                  Phone{getSortIndicator('phone')}
+                </th>
                 <th style={{ width: '18%', minWidth: '180px' }}>Bundles</th>
-                <th style={{ width: '10%', minWidth: '100px' }}>City</th>
-                <th style={{ width: '10%', minWidth: '100px' }}>Status</th>
+                <th 
+                  style={{ width: '10%', minWidth: '100px', cursor: 'pointer' }}
+                  onClick={() => handleSort('city')}
+                >
+                  City{getSortIndicator('city')}
+                </th>
+                <th 
+                  style={{ width: '10%', minWidth: '100px', cursor: 'pointer' }}
+                  onClick={() => handleSort('status')}
+                >
+                  Status{getSortIndicator('status')}
+                </th>
                 <th style={{ width: '6%', minWidth: '120px' }}>Actions</th>
               </tr>
             </thead>
@@ -213,7 +376,9 @@ const Users = () => {
         <Card className="text-center p-4">
           <Card.Body>
             <h5 className="text-muted">
-              {searchTerm.trim() ? 'No matching users found' : 'No users available'}
+              {searchTerm.trim() || selectedStatuses.length || selectedCities.length || selectedBundles.length 
+                ? 'No matching users found' 
+                : 'No users available'}
             </h5>
           </Card.Body>
         </Card>
@@ -260,5 +425,30 @@ const Users = () => {
     </div>
   );
 };
+
+const TruncatedText = ({ text, maxWidth = 150, className = '' }) => (
+  <Tooltip
+    title={text}
+    position="top"
+    trigger="mouseenter"
+    animation="scale"
+    arrow={true}
+    duration={200}
+  >
+    <span
+      className={`text-truncate d-inline-block ${className}`}
+      style={{ 
+        maxWidth: `${maxWidth}px`,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        cursor: 'help',
+        verticalAlign: 'middle'
+      }}
+    >
+      {text}
+    </span>
+  </Tooltip>
+);
 
 export default Users;
