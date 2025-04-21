@@ -1,11 +1,9 @@
-// pages/Payments.jsx
 import { useEffect, useState } from 'react';
 import { useContext } from 'react';
 import { Table, Form, Badge, Pagination } from 'react-bootstrap';
 import AppContext from '../context/AppContext';
 
 const Payments = () => {
-  // Get payments data from context
   const { 
     payments, 
     paymentsLoading, 
@@ -16,9 +14,58 @@ const Payments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc');
 
-  // Filter payments based on search term
-  const filteredPayments = payments.filter(payment => {
+  // Sorting handler
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sorting logic
+  const sortedPayments = [...payments].sort((a, b) => {
+    if (!sortKey) return 0;
+    
+    let valueA, valueB;
+    
+    switch (sortKey) {
+      case 'paymentId':
+        valueA = a.paymentId;
+        valueB = b.paymentId;
+        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+      
+      case 'userName':
+        valueA = a.userName?.toLowerCase() || '';
+        valueB = b.userName?.toLowerCase() || '';
+        return valueA.localeCompare(valueB) * (sortDirection === 'asc' ? 1 : -1);
+      
+      case 'amount':
+        valueA = a.amount;
+        valueB = b.amount;
+        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+      
+      case 'paymentDate':
+        valueA = a.paymentDate ? new Date(a.paymentDate) : new Date(0);
+        valueB = b.paymentDate ? new Date(b.paymentDate) : new Date(0);
+        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+      
+      case 'dueDate':
+        valueA = new Date(a.dueDate);
+        valueB = new Date(b.dueDate);
+        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+      
+      default:
+        return 0;
+    }
+  });
+
+  // Filtering logic (now uses sortedPayments)
+  const filteredPayments = sortedPayments.filter(payment => {
     const searchLower = searchTerm.toLowerCase();
     return (
       payment.userName?.toLowerCase().includes(searchLower) ||
@@ -28,7 +75,6 @@ const Payments = () => {
       payment.amount?.toString().includes(searchTerm)
     );
   });
-
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -37,6 +83,13 @@ const Payments = () => {
 
   if (paymentsLoading) return <div className="p-3">Loading payments...</div>;
   if (paymentsError) return <div className="p-3 text-danger">Error: {paymentsError}</div>;
+
+  const getSortIndicator = (key) => {
+    if (sortKey === key) {
+      return sortDirection === 'asc' ? ' ↑' : ' ↓';
+    }
+    return '';
+  };
 
   return (
     <div className="p-3">
@@ -53,18 +106,28 @@ const Payments = () => {
 
       <div style={{ maxHeight: '550px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
         <Table striped bordered hover responsive className="mb-0">
-          <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
-            <tr>
-              <th>Payment ID</th>
-              <th>User</th>
-              <th>Amount</th>
-              <th>Payment Date</th>
-              <th>Due Date</th>
-              <th>Method</th>
-              <th>Status</th>
-              <th>Bundle</th>
-            </tr>
-          </thead>
+        <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
+          <tr>
+            <th onClick={() => handleSort('paymentId')} style={{ cursor: 'pointer' }}>
+              Payment ID {getSortIndicator('paymentId')}
+            </th>
+            <th onClick={() => handleSort('userName')} style={{ cursor: 'pointer' }}>
+              User {getSortIndicator('userName')}
+            </th>
+            <th onClick={() => handleSort('amount')} style={{ cursor: 'pointer' }}>
+              Amount {getSortIndicator('amount')}
+            </th>
+            <th onClick={() => handleSort('paymentDate')} style={{ cursor: 'pointer' }}>
+              Payment Date {getSortIndicator('paymentDate')}
+            </th>
+            <th onClick={() => handleSort('dueDate')} style={{ cursor: 'pointer' }}>
+              Due Date {getSortIndicator('dueDate')}
+            </th>
+            <th>Method</th>
+            <th>Status</th>
+            <th>Bundle</th>
+          </tr>
+        </thead>
           <tbody>
             {currentItems.map((payment) => (
               <tr key={payment.paymentId}>
