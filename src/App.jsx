@@ -6,6 +6,7 @@ import Bundles from './pages/Bundles';// Add this import
 import BundleForm from './pages/BundleForm';
 import UserForm from './pages/UserForm';
 import UserDetails from './pages/UserDetails';
+import Payments from './pages/Payments';
 
 
 const router = createBrowserRouter([
@@ -40,6 +41,10 @@ const router = createBrowserRouter([
       {
         path: 'bundles/edit/:bundleId',
         element: <BundleForm />
+      },
+      {
+        path: 'payments',
+        element: <Payments/>
       },
       {
         path: '*',
