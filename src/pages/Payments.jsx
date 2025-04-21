@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useContext } from 'react';
-import { Table, Form, Badge, Pagination } from 'react-bootstrap';
+// pages/Payments.jsx
+import { useState, useContext } from 'react';
+import { Table, Form, Badge, Pagination, Stack, Button, Dropdown } from 'react-bootstrap';
 import AppContext from '../context/AppContext';
+import "../components/Payment.css"
 
 const Payments = () => {
   const { 
@@ -11,13 +12,21 @@ const Payments = () => {
     refreshPayments 
   } = useContext(AppContext);
 
+  // State management
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [sortKey, setSortKey] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
+  const [selectedStatuses, setSelectedStatuses] = useState([]);
+  const [selectedBundles, setSelectedBundles] = useState([]);
+  const [selectedMethods, setSelectedMethods] = useState([]);
 
-  // Sorting handler
+  // Filter options
+  const statusOptions = ['PAID', 'PENDING', 'UNPAID'];
+  const bundleOptions = [...new Set(payments.map(p => p.bundleName))].filter(Boolean);
+  const methodOptions = [...new Set(payments.map(p => p.paymentMethod))].filter(Boolean);
+
   const handleSort = (key) => {
     if (sortKey === key) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -27,69 +36,128 @@ const Payments = () => {
     }
   };
 
+  const headerConfig = [
+    { key: 'paymentId', label: 'Payment ID' },
+    { key: 'userName', label: 'User' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'paymentDate', label: 'Payment Date' },
+    { key: 'dueDate', label: 'Due Date' }
+  ];
+
   // Sorting logic
   const sortedPayments = [...payments].sort((a, b) => {
     if (!sortKey) return 0;
     
-    let valueA, valueB;
+    const getValue = (payment, key) => {
+      switch (key) {
+        case 'paymentId': return payment.paymentId;
+        case 'userName': return payment.userName?.toLowerCase() || '';
+        case 'amount': return payment.amount;
+        case 'paymentDate': return payment.paymentDate ? new Date(payment.paymentDate) : new Date(0);
+        case 'dueDate': return new Date(payment.dueDate);
+        default: return '';
+      }
+    };
+
+    const valueA = getValue(a, sortKey);
+    const valueB = getValue(b, sortKey);
     
-    switch (sortKey) {
-      case 'paymentId':
-        valueA = a.paymentId;
-        valueB = b.paymentId;
-        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
-      
-      case 'userName':
-        valueA = a.userName?.toLowerCase() || '';
-        valueB = b.userName?.toLowerCase() || '';
-        return valueA.localeCompare(valueB) * (sortDirection === 'asc' ? 1 : -1);
-      
-      case 'amount':
-        valueA = a.amount;
-        valueB = b.amount;
-        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
-      
-      case 'paymentDate':
-        valueA = a.paymentDate ? new Date(a.paymentDate) : new Date(0);
-        valueB = b.paymentDate ? new Date(b.paymentDate) : new Date(0);
-        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
-      
-      case 'dueDate':
-        valueA = new Date(a.dueDate);
-        valueB = new Date(b.dueDate);
-        return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
-      
-      default:
-        return 0;
+    if (typeof valueA === 'number') {
+      return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
     }
+    if (valueA instanceof Date) {
+      return (valueA - valueB) * (sortDirection === 'asc' ? 1 : -1);
+    }
+    return valueA.localeCompare(valueB) * (sortDirection === 'asc' ? 1 : -1);
   });
 
-  // Filtering logic (now uses sortedPayments)
+  // Filtering logic
   const filteredPayments = sortedPayments.filter(payment => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       payment.userName?.toLowerCase().includes(searchLower) ||
       payment.paymentMethod?.toLowerCase().includes(searchLower) ||
       payment.status?.toLowerCase().includes(searchLower) ||
       payment.bundleName?.toLowerCase().includes(searchLower) ||
       payment.amount?.toString().includes(searchTerm)
     );
+
+    return matchesSearch &&
+      (selectedStatuses.length === 0 || selectedStatuses.includes(payment.status)) &&
+      (selectedBundles.length === 0 || (payment.bundleName && selectedBundles.includes(payment.bundleName))) &&
+      (selectedMethods.length === 0 || selectedMethods.includes(payment.paymentMethod));
   });
-  // Pagination logic
+
+  // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredPayments.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
 
+  // Filter handlers
+  const toggleFilter = (value, filterType) => {
+    const setters = {
+      status: setSelectedStatuses,
+      bundle: setSelectedBundles,
+      method: setSelectedMethods
+    };
+
+    setters[filterType](prev => 
+      prev.includes(value) ? prev.filter(item => item !== value) : [...prev, value]
+    );
+    setCurrentPage(1);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedStatuses([]);
+    setSelectedBundles([]);
+    setSelectedMethods([]);
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  // Sort indicator
+  const getSortIndicator = (key) => 
+    sortKey === key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : '';
+
+  // Dropdown component
+  const MultiSelectDropdown = ({ 
+    options, 
+    selected, 
+    onToggle, 
+    label, 
+    variant = 'outline-primary' 
+  }) => (
+    <Dropdown autoClose="outside">
+      <Dropdown.Toggle variant={variant} className="me-2">
+        {label} {selected.length > 0 && `(${selected.length})`}
+      </Dropdown.Toggle>
+      <Dropdown.Menu 
+        style={{ maxHeight: '300px', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {options.map(option => (
+          <Dropdown.ItemText 
+            key={option} 
+            className="px-3 py-1"
+            onClick={(e) => e.preventDefault()}
+          >
+            <Form.Check
+              label={option}
+              checked={selected.includes(option)}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggle(option);
+              }}
+            />
+          </Dropdown.ItemText>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+
   if (paymentsLoading) return <div className="p-3">Loading payments...</div>;
   if (paymentsError) return <div className="p-3 text-danger">Error: {paymentsError}</div>;
-
-  const getSortIndicator = (key) => {
-    if (sortKey === key) {
-      return sortDirection === 'asc' ? ' ↑' : ' ↓';
-    }
-    return '';
-  };
 
   return (
     <div className="p-3">
@@ -104,38 +172,69 @@ const Payments = () => {
         />
       </div>
 
+      {/* Filter Controls */}
+      <div className="mb-4">
+        <Stack direction="horizontal" gap={3} className="flex-wrap">
+          <MultiSelectDropdown
+            options={statusOptions}
+            selected={selectedStatuses}
+            onToggle={(value) => toggleFilter(value, 'status')}
+            label="Status"
+          />
+
+          <MultiSelectDropdown
+            options={bundleOptions}
+            selected={selectedBundles}
+            onToggle={(value) => toggleFilter(value, 'bundle')}
+            label="Bundle"
+            variant="outline-secondary"
+          />
+
+          <MultiSelectDropdown
+            options={methodOptions}
+            selected={selectedMethods}
+            onToggle={(value) => toggleFilter(value, 'method')}
+            label="Method"
+            variant="outline-success"
+          />
+
+          <Button 
+            variant="outline-danger"
+            onClick={clearAllFilters}
+            disabled={!selectedStatuses.length && !selectedBundles.length && !selectedMethods.length}
+          >
+            Clear Filters
+          </Button>
+        </Stack>
+      </div>
+
+      {/* Payment Table */}
       <div style={{ maxHeight: '550px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '4px' }}>
         <Table striped bordered hover responsive className="mb-0">
         <thead className="table-dark" style={{ position: 'sticky', top: 0 }}>
-          <tr>
-            <th onClick={() => handleSort('paymentId')} style={{ cursor: 'pointer' }}>
-              Payment ID {getSortIndicator('paymentId')}
-            </th>
-            <th onClick={() => handleSort('userName')} style={{ cursor: 'pointer' }}>
-              User {getSortIndicator('userName')}
-            </th>
-            <th onClick={() => handleSort('amount')} style={{ cursor: 'pointer' }}>
-              Amount {getSortIndicator('amount')}
-            </th>
-            <th onClick={() => handleSort('paymentDate')} style={{ cursor: 'pointer' }}>
-              Payment Date {getSortIndicator('paymentDate')}
-            </th>
-            <th onClick={() => handleSort('dueDate')} style={{ cursor: 'pointer' }}>
-              Due Date {getSortIndicator('dueDate')}
-            </th>
-            <th>Method</th>
-            <th>Status</th>
-            <th>Bundle</th>
-          </tr>
-        </thead>
+            <tr>
+              {['paymentId', 'userName', 'amount', 'paymentDate', 'dueDate'].map((key) => (
+                <th 
+                  key={key}
+                  onClick={() => handleSort(key)}
+                  style={{ cursor: 'pointer', minWidth: 120 }}
+                >
+                  {key.replace(/([A-Z])/g, ' $1').toUpperCase()}
+                  {getSortIndicator(key)}
+                </th>
+              ))}
+              <th>Method</th>
+              <th>Status</th>
+              <th>Bundle</th>
+            </tr>
+          </thead>
           <tbody>
             {currentItems.map((payment) => (
               <tr key={payment.paymentId}>
                 <td>{payment.paymentId}</td>
                 <td>{payment.userName || '-'}</td>
                 <td>${payment.amount?.toFixed(2)}</td>
-                <td>{payment.paymentDate ? 
-                  new Date(payment.paymentDate).toLocaleString() : '-'}</td>
+                <td>{payment.paymentDate ? new Date(payment.paymentDate).toLocaleString() : '-'}</td>
                 <td>{new Date(payment.dueDate).toLocaleString()}</td>
                 <td>{payment.paymentMethod}</td>
                 <td>

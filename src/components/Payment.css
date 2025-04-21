@@ -1,0 +1,10 @@
+.filter-pill {
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .filter-pill:hover {
+    transform: translateY(-1px);
+  }
+
+  
