@@ -1,6 +1,6 @@
 // pages/Payments.jsx
 import { useState, useContext } from 'react';
-import { Table, Form, Badge, Pagination, Stack, Button, Dropdown } from 'react-bootstrap';
+import { Table, Form, Badge, Pagination, Stack, Button, Dropdown, Alert, Spinner } from 'react-bootstrap';
 import AppContext from '../context/AppContext';
 import "../components/Payment.css"
 
@@ -156,8 +156,24 @@ const Payments = () => {
     </Dropdown>
   );
 
-  if (paymentsLoading) return <div className="p-3">Loading payments...</div>;
-  if (paymentsError) return <div className="p-3 text-danger">Error: {paymentsError}</div>;
+  if (paymentsLoading)
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ height: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </div>
+    );
+  if (paymentsError)
+    return (
+      <div className="p-3">
+        <Alert variant="danger">{paymentsError}</Alert>
+        <Button variant="secondary" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
 
   return (
     <div className="p-3">

@@ -1,5 +1,5 @@
 // pages/Bundles.js
-import { Card, Button, Row, Col, Badge } from 'react-bootstrap';
+import { Card, Button, Row, Col, Badge, Spinner, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { PlusLg } from 'react-bootstrap-icons';
 import '../components/BundleCreationButton.css';
@@ -14,8 +14,24 @@ const Bundles = () => {
   } = useContext(AppContext);
 
 
-  if (bundlesLoading) return <div>Loading bundles...</div>;
-  if (bundlesError) return <div>Error: {bundlesError}</div>;
+  if (bundlesLoading)
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center"
+        style={{ height: "300px" }}
+      >
+        <Spinner animation="border" variant="primary" />
+      </div>
+    );
+  if (bundlesError)
+    return (
+      <div className="p-3">
+        <Alert variant="danger">{bundlesError}</Alert>
+        <Button variant="secondary" onClick={() => window.location.reload()}>
+          Retry
+        </Button>
+      </div>
+    );
 
   return (
     <div className="p-3">
