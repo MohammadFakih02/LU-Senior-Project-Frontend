@@ -173,6 +173,15 @@ const updatePaymentStatus = async (paymentId, paymentData) => {
   }
 };
 
+const updatePayment = async (paymentId, paymentData) => {
+  try {
+    await axios.put(`http://localhost:8080/api/payments/${paymentId}`, paymentData);
+    await refreshPayments();
+  } catch (error) {
+    throw error.response?.data || error;
+  }
+};
+
 
 
   return (
@@ -192,6 +201,7 @@ const updatePaymentStatus = async (paymentId, paymentData) => {
       paymentsError, 
       refreshPayments,
       updatePaymentStatus,
+      updatePayment,
       
       bundles, 
       bundlesLoading, 

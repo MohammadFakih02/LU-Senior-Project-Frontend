@@ -1,6 +1,6 @@
 // PaymentConfirmationModal.jsx
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const PaymentConfirmationModal = ({
   show,
@@ -11,6 +11,11 @@ const PaymentConfirmationModal = ({
   isLoading
 }) => {
   const [selectedMethod, setSelectedMethod] = useState('');
+  const [editableAmount, setEditableAmount] = useState(0);
+  const [isAmountOnlyUpdate, setIsAmountOnlyUpdate] = useState(false);
+  useEffect(() => {
+    setEditableAmount(payment?.amount || 0);
+  }, [payment]);
 
   // Safe access with default values
   const safePayment = payment || {
@@ -23,7 +28,17 @@ const PaymentConfirmationModal = ({
     onConfirm({
       status: 'PAID',
       paymentMethod: selectedMethod || safePayment.paymentMethod,
-      paymentDate: new Date().toISOString()
+      paymentDate: new Date().toISOString(),
+      amount: Number(editableAmount) // Pass the edited amount
+    });
+  };
+  const handleAmountUpdate = () => {
+    setIsAmountOnlyUpdate(true);
+    onConfirm({
+      amount: Number(editableAmount),
+      // Explicitly keep existing status/method
+      status: safePayment.status,
+      paymentMethod: safePayment.paymentMethod
     });
   };
 
@@ -36,9 +51,10 @@ const PaymentConfirmationModal = ({
         <Form.Group className="mb-3">
           <Form.Label>Amount</Form.Label>
           <Form.Control 
-            type="text" 
-            value={`$${safePayment.amount?.toFixed(2) || '0.00'}`} 
-            disabled 
+          type="number" 
+          step="0.01"
+          value={editableAmount}
+          onChange={(e) => setEditableAmount(e.target.value)}
           />
         </Form.Group>
 
@@ -65,16 +81,31 @@ const PaymentConfirmationModal = ({
         </Form.Group>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={isLoading}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={handleSubmit} disabled={isLoading}>
-          {isLoading ? (
-            <Spinner animation="border" size="sm" />
-          ) : (
-            'Mark as Paid'
-          )}
-        </Button>
+      <Button variant="secondary" onClick={onHide} disabled={isLoading}>
+        Cancel
+      </Button>
+      <Button 
+        variant="warning" 
+        onClick={handleAmountUpdate}
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <Spinner animation="border" size="sm" />
+        ) : (
+          'Update Amount Only'
+        )}
+      </Button>
+      <Button 
+        variant="primary" 
+        onClick={handleSubmit} 
+        disabled={isLoading}
+      >
+        {isLoading ? (
+          <Spinner animation="border" size="sm" />
+        ) : (
+          'Mark as Paid'
+        )}
+      </Button>
       </Modal.Footer>
     </Modal>
   );

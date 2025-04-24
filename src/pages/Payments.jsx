@@ -1,5 +1,5 @@
 // pages/Payments.jsx
-import { useState, useContext, useCallback} from 'react';
+import { useState, useContext, useCallback, useEffect} from 'react';
 import { Table, Form, Badge, Pagination, Stack, Button, Dropdown, Alert, Spinner } from 'react-bootstrap';
 import AppContext from '../context/AppContext';
 import "../components/Payment.css"
@@ -10,7 +10,8 @@ const Payments = () => {
     payments, 
     paymentsLoading, 
     paymentsError, 
-    refreshPayments 
+    refreshPayments,
+    updatePayment
   } = useContext(AppContext);
 
   // State management
@@ -44,12 +45,11 @@ const Payments = () => {
   const handleConfirmPayment = async (updateData) => {
     setIsUpdating(true);
     try {
-      // Only send payment method if changed
-      const payload = {
-        paymentMethod: updateData.paymentMethod || selectedPayment.paymentMethod
-      };
-      
-      await updatePaymentStatus(selectedPayment.paymentId, payload);
+      await updatePayment(selectedPayment.paymentId, {
+        ...updateData,
+        // Preserve original status if not provided
+        status: updateData.status || selectedPayment.status
+      });
       setShowConfirmModal(false);
     } catch (error) {
       console.error('Payment update failed:', error);
