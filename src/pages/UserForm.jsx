@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AppContext from "../context/AppContext";
+import BundleCard from "../components/BundleCard";
 
 const UserForm = () => {
   const { bundles, bundlesLoading, createUser, updateUser, fetchUserById } =
@@ -102,7 +103,6 @@ const UserForm = () => {
       try {
         const userData = await fetchUserById(userId);
         
-        // Only show toast if we haven't loaded data yet
         if (!formData) {
           showSuccessToast("User data loaded successfully");
         }
@@ -135,7 +135,6 @@ const UserForm = () => {
           );
         }
         
-        // Set formData to indicate we've loaded the data
         setFormData({
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -573,58 +572,13 @@ const UserForm = () => {
               <Row xs={1} md={2} lg={3} className="g-3">
                 {bundles.map((bundle) => (
                   <Col key={bundle.bundleId}>
-                    <Card
-                      className={`h-100 shadow-sm ${
-                        clickedBundle === bundle.bundleId
-                          ? "click-animation"
-                          : ""
-                      }`}
+                    <BundleCard
+                      bundle={bundle}
+                      variant="small"
                       onClick={() => handleAddBundle(bundle.bundleId)}
-                      style={{
-                        cursor: "pointer",
-                        transition: "all 0.3s ease",
-                        border:
-                          clickedBundle === bundle.bundleId
-                            ? "2px solid var(--bs-primary)"
-                            : "",
-                        transform:
-                          clickedBundle === bundle.bundleId
-                            ? "scale(0.95)"
-                            : "scale(1)",
-                      }}
-                    >
-                      <Card.Header className="d-flex justify-content-between align-items-center bg-dark text-white py-2">
-                        <h6 className="mb-0">{bundle.name}</h6>
-                        <Badge
-                          bg={bundle.type === "prepaid" ? "success" : "primary"}
-                        >
-                          {bundle.type}
-                        </Badge>
-                      </Card.Header>
-                      <Card.Body className="py-2">
-                        <Card.Text className="text-muted small mb-2">
-                          {bundle.description}
-                        </Card.Text>
-                        <div className="small">
-                          <div className="d-flex justify-content-between">
-                            <span>Price:</span>
-                            <strong>${bundle.price}/mo</strong>
-                          </div>
-                          <div className="d-flex justify-content-between">
-                            <span>Data:</span>
-                            <strong>
-                              {bundle.dataCap === 0
-                                ? "Unlimited"
-                                : `${bundle.dataCap}GB`}
-                            </strong>
-                          </div>
-                          <div className="d-flex justify-content-between">
-                            <span>Speed:</span>
-                            <strong>{bundle.speed}Mbps</strong>
-                          </div>
-                        </div>
-                      </Card.Body>
-                    </Card>
+                      isClicked={clickedBundle === bundle.bundleId}
+                      showActions={false}
+                    />
                   </Col>
                 ))}
               </Row>

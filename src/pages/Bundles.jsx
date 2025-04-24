@@ -1,10 +1,11 @@
 // pages/Bundles.js
-import { Card, Button, Row, Col, Badge, Spinner, Alert } from 'react-bootstrap';
+import { Row, Col, Spinner, Alert, Card } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { PlusLg } from 'react-bootstrap-icons';
 import '../components/BundleCreationButton.css';
 import { useContext } from 'react';
 import AppContext from '../context/AppContext';
+import BundleCard from '../components/BundleCard';
 
 const Bundles = () => {
   const {
@@ -12,7 +13,6 @@ const Bundles = () => {
     bundlesLoading,
     bundlesError,
   } = useContext(AppContext);
-
 
   if (bundlesLoading)
     return (
@@ -40,51 +40,18 @@ const Bundles = () => {
       </div>
 
       <Row xs={1} md={2} lg={3} className="g-4">
-
         {/* Existing Bundles */}
         {bundles.map((bundle) => (
           <Col key={bundle.bundleId}>
-            <Card className="h-100 shadow-sm">
-              <Card.Header className="d-flex justify-content-between align-items-center bg-dark text-white">
-                <h5 className="mb-0">{bundle.name}</h5>
-                <Badge bg={bundle.type === 'prepaid' ? 'success' : 'primary'}>
-                  {bundle.type}
-                </Badge>
-              </Card.Header>
-              <Card.Body>
-                <Card.Text className="text-muted small">
-                  {bundle.description}
-                </Card.Text>
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between">
-                    <span>Price:</span>
-                    <strong>${bundle.price}/mo</strong>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <span>Data Cap:</span>
-                    <strong>{bundle.dataCap === 0 ? 'unlimited' : `${bundle.datacap}GB`}</strong>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <span>Speed:</span>
-                    <strong>{bundle.speed}Mbps</strong>
-                  </div>
-                </div>
-              </Card.Body>
-              <Card.Footer className="d-flex justify-content-end gap-2">
-                <Button variant="info" size="sm">View</Button>
-    
-                <Button 
-                variant="warning" 
-                size="sm"
-                as={Link} 
-                to={`/bundles/edit/${bundle.id || bundle.bundleId}`}
-                >
-                  Edit
-                </Button>
-                </Card.Footer>
-            </Card>
+            <BundleCard 
+              bundle={bundle}
+              variant="large"
+              showActions={true}
+            />
           </Col>
         ))}
+        
+        {/* Add New Bundle Card */}
         <Col>
           <Card 
             as={Link} 
