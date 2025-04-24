@@ -13,7 +13,7 @@ import {
   Modal,
 } from "react-bootstrap";
 import { useForm } from "react-hook-form";
-import { toast } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import AppContext from "../context/AppContext";
 
@@ -34,6 +34,8 @@ const UserForm = () => {
   const [clickedBundle, setClickedBundle] = useState(null);
   const [userStatus, setUserStatus] = useState("ACTIVE");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [formData, setFormData] = useState(null);
 
   const {
     register,
@@ -44,13 +46,67 @@ const UserForm = () => {
     clearErrors,
   } = useForm();
 
+  // Toast notification functions
+  const showSuccessToast = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 2000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showErrorToast = (message) => {
+    toast.error(message, {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showWarningToast = (message) => {
+    toast.warn(message, {
+      position: "top-right",
+      autoClose: 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showInfoToast = (message) => {
+    toast.info(message, {
+      position: "top-right",
+      autoClose: 2500,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
   useEffect(() => {
     if (!isEditMode || !userId) return;
-
+  
     const loadUserData = async () => {
       try {
         const userData = await fetchUserById(userId);
-
+        
+        // Only show toast if we haven't loaded data yet
+        if (!formData) {
+          showSuccessToast("User data loaded successfully");
+        }
+  
         reset({
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -62,9 +118,9 @@ const UserForm = () => {
           building: userData.location?.building,
           floor: userData.location?.floor,
         });
-
+  
         setUserStatus(userData.status || "ACTIVE");
-
+  
         if (userData.bundles && userData.bundles.length > 0) {
           setSelectedBundles(
             userData.bundles.map((bundle, index) => ({
@@ -78,16 +134,30 @@ const UserForm = () => {
             }))
           );
         }
+        
+        // Set formData to indicate we've loaded the data
+        setFormData({
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          email: userData.email,
+          phone: userData.phone,
+          address: userData.location?.address,
+          city: userData.location?.city,
+          street: userData.location?.street,
+          building: userData.location?.building,
+          floor: userData.location?.floor,
+        });
       } catch (error) {
+        showErrorToast(error.message || "Failed to load user data");
         setApiError(error.message || "Failed to load user data");
-        toast.error(error.message || "Failed to load user data");
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     loadUserData();
-  }, [isEditMode, userId, reset, fetchUserById]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, userId]);
 
   const validateBundleLocations = () => {
     const bundleErrors = {};
@@ -108,31 +178,35 @@ const UserForm = () => {
     return isValid;
   };
 
-  const onSubmit = async (data) => {
+  const prepareSubmit = (data) => {
+    if (!validateBundleLocations()) {
+      showErrorToast("Please fix bundle location errors");
+      return;
+    }
+    setFormData(data);
+    setShowSaveConfirm(true);
+  };
+
+  const onSubmit = async () => {
+    setShowSaveConfirm(false);
     setIsSubmitting(true);
     setApiError("");
     setValidationErrors({});
     clearErrors();
-
-    if (!validateBundleLocations()) {
-      setIsSubmitting(false);
-      toast.error("Please fix bundle location errors");
-      return;
-    }
-
+  
     try {
       const userData = {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
         status: userStatus,
         location: {
-          address: data.address,
-          city: data.city,
-          street: data.street,
-          building: data.building,
-          floor: data.floor,
+          address: formData.address,
+          city: formData.city,
+          street: formData.street,
+          building: formData.building,
+          floor: formData.floor,
         },
         bundleSubscriptions: selectedBundles.map((bundle) => ({
           bundleId: bundle.bundleId,
@@ -145,16 +219,16 @@ const UserForm = () => {
           },
         })),
       };
-
+  
       if (isEditMode) {
         await updateUser(userId, userData);
-        toast.success("User updated successfully!");
+        showSuccessToast("User updated successfully!");
       } else {
         await createUser(userData);
-        toast.success("User created successfully!");
+        showSuccessToast("User created successfully!");
       }
-
-      setTimeout(() => navigate("/users"), 1500);
+  
+      setTimeout(() => navigate("/users"), 1000);
     } catch (error) {
       if (error.response && error.response.data) {
         const { data } = error.response;
@@ -169,16 +243,16 @@ const UserForm = () => {
             });
           });
           setValidationErrors(fieldErrors);
-          toast.error("Please fix the form errors");
+          showErrorToast("Please fix the form errors");
         } 
         else if (data.message) {
           setApiError(data.message);
-          toast.error(data.message);
+          showErrorToast(data.message);
         }
       } else {
         const errorMsg = error.message || "An unexpected error occurred";
         setApiError(errorMsg);
-        toast.error(errorMsg);
+        showErrorToast(errorMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -201,16 +275,13 @@ const UserForm = () => {
     setSelectedBundles([...selectedBundles, newBundle]);
     setActiveAccordionKey(newBundle.tempId);
 
-    toast.info("Bundle added! Configure its location below", {
-      autoClose: 3000,
-    });
+    showInfoToast("Bundle added! Configure its location below");
   };
 
   const handleRemoveBundle = (tempId) => {
     setSelectedBundles(selectedBundles.filter((b) => b.tempId !== tempId));
     if (activeAccordionKey === tempId) setActiveAccordionKey(null);
     
-    // Clear any errors related to this bundle
     const newErrors = { ...validationErrors };
     Object.keys(newErrors).forEach(key => {
       if (key.includes(tempId)) {
@@ -219,7 +290,7 @@ const UserForm = () => {
     });
     setValidationErrors(newErrors);
     
-    toast.warning("Bundle removed", { autoClose: 3000 });
+    showWarningToast("Bundle removed");
   };
 
   const handleBundleLocationChange = (tempId, field, value) => {
@@ -229,7 +300,6 @@ const UserForm = () => {
       )
     );
     
-    // Clear error when field is updated
     if (validationErrors[`${field}-${tempId}`]) {
       const newErrors = { ...validationErrors };
       delete newErrors[`${field}-${tempId}`];
@@ -248,45 +318,61 @@ const UserForm = () => {
 
   if (isLoading || bundlesLoading) {
     return (
-      <div
-        className="d-flex justify-content-center align-items-center"
-        style={{ height: "50vh" }}
-      >
+      <div className="d-flex justify-content-center align-items-center" style={{ height: "50vh" }}>
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
+        <ToastContainer />
       </div>
     );
   }
 
   return (
     <div className="p-3">
-      <Modal
-        show={showDeleteConfirm}
-        onHide={() => setShowDeleteConfirm(false)}
-        centered
-      >
+      <ToastContainer />
+      
+      <Modal show={showDeleteConfirm} onHide={() => setShowDeleteConfirm(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Removal</Modal.Title>
+          <Modal.Title>Confirm Bundle Removal</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to remove this bundle subscription?
+          Are you sure you want to remove this bundle subscription? This action cannot be undone.
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowDeleteConfirm(false)}
-          >
+          <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
             Cancel
           </Button>
-          <Button
-            variant="danger"
-            onClick={() => {
-              handleRemoveBundle(bundleToDelete);
-              setShowDeleteConfirm(false);
-            }}
-          >
-            Remove
+          <Button variant="danger" onClick={() => {
+            handleRemoveBundle(bundleToDelete);
+            setShowDeleteConfirm(false);
+          }}>
+            Remove Bundle
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal show={showSaveConfirm} onHide={() => setShowSaveConfirm(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Changes</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {isEditMode 
+            ? "Are you sure you want to update this user?" 
+            : "Are you sure you want to create this new user?"}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowSaveConfirm(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={onSubmit}>
+            {isSubmitting ? (
+              <>
+                <Spinner as="span" animation="border" size="sm" className="me-2" />
+                {isEditMode ? "Updating..." : "Creating..."}
+              </>
+            ) : (
+              isEditMode ? "Update User" : "Create User"
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -300,8 +386,13 @@ const UserForm = () => {
 
       <Card className="shadow-sm">
         <Card.Body>
+          {apiError && (
+            <Alert variant="danger" className="mb-4" onClose={() => setApiError("")} dismissible>
+              {apiError}
+            </Alert>
+          )}
 
-          <Form onSubmit={handleSubmit(onSubmit)}>
+          <Form onSubmit={handleSubmit(prepareSubmit)}>
             <Row className="g-4">
               <Col md={6}>
                 <h4 className="mb-3">User Information</h4>
@@ -723,19 +814,14 @@ const UserForm = () => {
                       aria-hidden="true"
                       className="me-2"
                     />
-                    {isEditMode ? "Updating..." : "Creating..."}
+                    {isEditMode ? "Saving..." : "Creating..."}
                   </>
                 ) : (
-                  isEditMode ? "Update User" : "Create User"
+                  isEditMode ? "Save Changes" : "Create User"
                 )}
               </Button>
             </div>
           </Form>
-          {apiError && (
-            <Alert variant="danger" className="mt-4" onClose={() => setApiError("")} dismissible>
-              {apiError}
-            </Alert>
-          )}
         </Card.Body>
       </Card>
 
