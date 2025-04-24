@@ -31,6 +31,16 @@ const UserDetails = () => {
     setActiveAccordionKey(activeAccordionKey === key ? null : key);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
@@ -66,7 +76,12 @@ const UserDetails = () => {
   return (
     <div className="p-3">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1>User Details</h1>
+        <div>
+          <h1>User Details</h1>
+          <Badge bg={user.status === 'ACTIVE' ? 'success' : 'secondary'} className="fs-6">
+            {user.status}
+          </Badge>
+        </div>
         <div>
           <Button variant="secondary" onClick={() => navigate('/users')} className="me-2">
             Back to Users
@@ -90,12 +105,6 @@ const UserDetails = () => {
               </div>
               <div className="mb-3">
                 <strong>Phone:</strong> {user.phone || '-'}
-              </div>
-              <div className="mb-3">
-                <strong>Status:</strong> 
-                <Badge bg={user.status === 'ACTIVE' ? 'success' : 'secondary'} className="ms-2">
-                  {user.status}
-                </Badge>
               </div>
             </Col>
             <Col md={6}>
@@ -130,10 +139,16 @@ const UserDetails = () => {
                   <Accordion.Header onClick={() => toggleAccordion(index)}>
                     <div className="d-flex justify-content-between align-items-center w-100 pe-2">
                       <span>
-                        {bundle.bundle.name} - {bundle.status}
+                        {bundle.bundle.name} 
+                        <Badge bg={bundle.status === 'ACTIVE' ? 'success' : 'secondary'} className="ms-2">
+                          {bundle.status}
+                        </Badge>
                         <Badge bg="info" className="ms-2">
                           ${bundle.bundle.price}/month
                         </Badge>
+                        <span className="ms-2">
+                          (Subscribed on: {formatDate(bundle.subscriptionDate)})
+                        </span>
                       </span>
                     </div>
                   </Accordion.Header>
@@ -141,7 +156,7 @@ const UserDetails = () => {
                     <Row>
                       <Col md={6}>
                         <div className="mb-2">
-                          <strong>Subscription Date:</strong> {bundle.subscriptionDate}
+                          <strong>Subscription Date:</strong> {formatDate(bundle.subscriptionDate)}
                         </div>
                         <div className="mb-2">
                           <strong>Type:</strong> {bundle.bundle.type}
