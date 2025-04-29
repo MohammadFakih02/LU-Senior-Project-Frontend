@@ -3,7 +3,7 @@ import { Badge, Button } from 'react-bootstrap';
 import { useTable } from '../hooks/useTable';
 import { DataTable } from '../components/tables/DataTable';
 import AppContext from '../context/AppContext';
-import PaymentConfirmationModal from './PaymentConfirmationModal';
+import PaymentConfirmationModal from '../components/PaymentConfirmationModal';
 import { ArrowClockwise } from 'react-bootstrap-icons';
 
 const Payments = () => {
