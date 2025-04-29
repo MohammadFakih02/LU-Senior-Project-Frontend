@@ -131,6 +131,7 @@ const UserForm = () => {
               street: bundle.bundleLocation?.street || "",
               building: bundle.bundleLocation?.building || "",
               floor: bundle.bundleLocation?.floor || "",
+              status: bundle.status || "ACTIVE"
             }))
           );
         }
@@ -209,6 +210,7 @@ const UserForm = () => {
         },
         bundleSubscriptions: selectedBundles.map((bundle) => ({
           bundleId: bundle.bundleId,
+          status: bundle.status,
           location: {
             address: bundle.address,
             city: bundle.city,
@@ -220,6 +222,7 @@ const UserForm = () => {
       };
   
       if (isEditMode) {
+        console.log("Submitting user data:", JSON.stringify(userData, null, 2));
         await updateUser(userId, userData);
         showSuccessToast("User updated successfully!");
       } else {
@@ -270,6 +273,7 @@ const UserForm = () => {
       street: "",
       building: "",
       floor: "",
+      status: "ACTIVE"
     };
     setSelectedBundles([...selectedBundles, newBundle]);
     setActiveAccordionKey(newBundle.tempId);
@@ -304,6 +308,14 @@ const UserForm = () => {
       delete newErrors[`${field}-${tempId}`];
       setValidationErrors(newErrors);
     }
+  };
+
+  const handleBundleStatusChange = (tempId, newStatus) => {
+    setSelectedBundles(
+      selectedBundles.map((b) =>
+        b.tempId === tempId ? { ...b, status: newStatus } : b
+      )
+    );
   };
 
   const toggleAccordion = (key) => {
@@ -642,6 +654,30 @@ const UserForm = () => {
                             </Button>
                           </div>
                           <Accordion.Body>
+                            <Row className="g-3 mb-3">
+                              <Col md={12}>
+                                <Form.Group controlId={`bundleStatus-${bundle.tempId}`}>
+                                  <Form.Label>Bundle Status</Form.Label>
+                                  <div>
+                                    <Button
+                                      variant={bundle.status === "ACTIVE" ? "success" : "outline-success"}
+                                      className="me-2"
+                                      onClick={() => handleBundleStatusChange(bundle.tempId, "ACTIVE")}
+                                      size="sm"
+                                    >
+                                      Active
+                                    </Button>
+                                    <Button
+                                      variant={bundle.status === "INACTIVE" ? "secondary" : "outline-secondary"}
+                                      onClick={() => handleBundleStatusChange(bundle.tempId, "INACTIVE")}
+                                      size="sm"
+                                    >
+                                      Inactive
+                                    </Button>
+                                  </div>
+                                </Form.Group>
+                              </Col>
+                            </Row>
                             <Row className="g-3">
                               <Col md={6}>
                                 <Form.Group
