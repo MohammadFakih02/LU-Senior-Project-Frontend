@@ -222,7 +222,6 @@ const UserForm = () => {
       };
   
       if (isEditMode) {
-        console.log("Submitting user data:", JSON.stringify(userData, null, 2));
         await updateUser(userId, userData);
         showSuccessToast("User updated successfully!");
       } else {

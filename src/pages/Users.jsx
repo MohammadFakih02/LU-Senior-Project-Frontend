@@ -69,15 +69,19 @@ const Users = () => {
       tableHandlers={tableHandlers}
       searchPlaceholder="Search users..."
       renderHeader={() => (
-        <Button 
-          variant="outline-secondary" 
-          onClick={refreshUsers}
-          disabled={usersLoading}
-          className="ms-auto"
-        >
-          <ArrowClockwise className={`me-1 ${usersLoading ? 'spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="d-flex gap-2 ms-auto">
+          <Button 
+            variant="outline-secondary" 
+            onClick={refreshUsers}
+            disabled={usersLoading}
+          >
+            <ArrowClockwise className={`me-1 ${usersLoading ? 'spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button as={Link} to="/users/create" variant="primary">
+            Add New User
+          </Button>
+        </div>
       )}
       renderRow={(user) => (
         <tr key={user.id}>
