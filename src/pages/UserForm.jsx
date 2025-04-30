@@ -17,7 +17,6 @@ const UserForm = () => {
     createUser, 
     updateUser, 
     fetchUserById,
-    showSuccessToast,
     showErrorToast,
     showWarningToast,
     showInfoToast
@@ -59,7 +58,6 @@ const UserForm = () => {
     fetchUserById,
     createUser,
     updateUser,
-    showSuccessToast,
     showErrorToast,
     showWarningToast,
     showInfoToast,

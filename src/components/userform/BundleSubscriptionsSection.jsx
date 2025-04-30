@@ -124,14 +124,23 @@ const BundleSubscriptionsSection = ({
                           </Badge>
                         )}
                       </div>
-                      <div onClick={(e) => e.stopPropagation()} className="ms-3 me-2">
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => confirmRemoveBundle(bundle.tempId)}
-                        >
-                          Remove
-                        </Button>
+                      <div 
+                        className="ms-3 me-2 btn btn-danger btn-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmRemoveBundle(bundle.tempId);
+                        }}
+                        style={{ cursor: 'pointer', padding: '0.25rem 0.5rem' }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            confirmRemoveBundle(bundle.tempId);
+                          }
+                        }}
+                      >
+                        Remove
                       </div>
                     </div>
                   </Accordion.Header>

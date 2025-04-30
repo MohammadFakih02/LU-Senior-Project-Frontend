@@ -6,7 +6,6 @@ const useUserForm = ({
   fetchUserById, 
   createUser, 
   updateUser, 
-  showSuccessToast, 
   showErrorToast, 
   showWarningToast, 
   showInfoToast,
@@ -65,7 +64,6 @@ const useUserForm = ({
           );
         }
         
-        showSuccessToast("User data loaded successfully");
       } catch (error) {
         showErrorToast(error.message || "Failed to load user data");
         setApiError(error.message || "Failed to load user data");
@@ -75,7 +73,7 @@ const useUserForm = ({
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, showSuccessToast, showErrorToast]);
+  }, [isEditMode, userId, fetchUserById, reset, showErrorToast]);
 
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
@@ -141,10 +139,8 @@ const useUserForm = ({
 
       if (isEditMode) {
         await updateUser(userId, userData);
-        showSuccessToast("User updated successfully!");
       } else {
         await createUser(userData);
-        showSuccessToast("User created successfully!");
       }
 
       setTimeout(() => navigate("/users"), 1000);
@@ -166,7 +162,7 @@ const useUserForm = ({
       setIsSubmitting(false);
     }
   }, [formData, isEditMode, userId, userStatus, selectedBundles, updateUser, 
-      createUser, navigate, showSuccessToast, showErrorToast, clearErrors, setError]);
+      createUser, navigate, showErrorToast, clearErrors, setError]);
 
   const handleAddBundle = useCallback((bundleId) => {
     setClickedBundle(bundleId);
