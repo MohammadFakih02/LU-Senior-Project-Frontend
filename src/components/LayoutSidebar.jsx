@@ -10,7 +10,7 @@ import {
   LightningChargeFill
 } from "react-bootstrap-icons";
 import { ToastContainer } from "react-toastify";
-import './LayoutSidebar.css';
+import './styles/LayoutSidebar.css';
 
 const LayoutSidebar = () => {
   return (

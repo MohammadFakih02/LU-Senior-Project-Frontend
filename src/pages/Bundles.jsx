@@ -2,7 +2,7 @@
 import { Row, Col, Spinner, Alert, Card, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { PlusLg } from 'react-bootstrap-icons';
-import '../components/BundleCreationButton.css';
+import './styles/BundleCreationButton.css';
 import { useContext } from 'react';
 import AppContext from '../context/AppContext';
 import BundleCard from '../components/BundleCard';

@@ -60,6 +60,9 @@ export const DataTable = ({
     const matchesFilters = Object.entries(filters).every(([filterType, filterValues]) => {
       if (filterValues.length === 0) return true;
       
+      if (filterType === 'method') {
+        return filterValues.includes(item.paymentMethod);
+      }
       // Special handling for nested properties and arrays
       if (filterType === 'city') {
         return filterValues.includes(item.location?.city);
@@ -76,7 +79,11 @@ export const DataTable = ({
       return filterValues.includes(item[filterType]);
     });
 
+    
+    
+
     return matchesSearch && matchesFilters;
+    
   });
 
   // Sorting logic
