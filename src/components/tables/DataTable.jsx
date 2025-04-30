@@ -1,10 +1,11 @@
 import { Table, Pagination, Spinner, Alert, Form, Stack, Button } from 'react-bootstrap';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
 import { ArrowClockwise } from 'react-bootstrap-icons';
+import { useState } from 'react';
 
 export const DataTable = ({
   columns,
-  data = [], // Default to empty array
+  data = [],
   loading,
   error,
   itemsPerPage = 10,
@@ -15,7 +16,8 @@ export const DataTable = ({
   tableHandlers,
   searchPlaceholder = "Search...",
   title,
-  renderHeader
+  renderHeader,
+  containerStyle
 }) => {
   const { 
     searchTerm,
@@ -33,17 +35,71 @@ export const DataTable = ({
     clearFilters
   } = tableHandlers;
 
+  const [openDropdown, setOpenDropdown] = useState(null);
+
+  const handleDropdownToggle = (dropdownKey) => {
+    setOpenDropdown(prev => prev === dropdownKey ? null : dropdownKey);
+  };
+
   // Handle search and pagination
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
 
+  // Filtering logic
+  const filteredData = data.filter(item => {
+    // Search term filter
+    const matchesSearch = !searchTerm || 
+      Object.values(item).some(
+        value => value && 
+        value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+    // Apply each active filter
+    const matchesFilters = Object.entries(filters).every(([filterType, filterValues]) => {
+      if (filterValues.length === 0) return true;
+      
+      // Special handling for nested properties and arrays
+      if (filterType === 'city') {
+        return filterValues.includes(item.location?.city);
+      }
+      if (filterType === 'bundle') {
+        const itemBundles = Array.isArray(item.bundleNames)
+          ? item.bundleNames
+          : item.bundleName
+            ? [item.bundleName]
+            : [];
+      
+        return filterValues.some(value => itemBundles.includes(value));
+      }
+      return filterValues.includes(item[filterType]);
+    });
+
+    return matchesSearch && matchesFilters;
+  });
+
+  // Sorting logic
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (!sortKey) return 0;
+    
+    const aValue = sortKey === 'city' ? a.location?.city : a[sortKey];
+    const bValue = sortKey === 'city' ? b.location?.city : b[sortKey];
+
+    if (aValue === bValue) return 0;
+    if (aValue == null) return 1;
+    if (bValue == null) return -1;
+
+    return sortDirection === 'asc' 
+      ? String(aValue).localeCompare(String(bValue))
+      : String(bValue).localeCompare(String(aValue));
+  });
+
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
   // Loading state
   if (loading) return (
@@ -63,7 +119,7 @@ export const DataTable = ({
   );
 
   return (
-    <div className="p-3">
+    <div className="p-3" style={containerStyle}>
       {/* Header Section */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="mb-0">{title}</h1>
@@ -85,11 +141,14 @@ export const DataTable = ({
           {filterConfig.map(({ type, options, label, variant }) => (
             <MultiSelectDropdown
               key={type}
+              dropdownKey={type}
               options={options}
               selected={filters[type]}
               onToggle={(value) => toggleFilter(value, type)}
               label={label}
               variant={variant}
+              isOpen={openDropdown === type}
+              onToggleDropdown={handleDropdownToggle}
             />
           ))}
           <Button 
@@ -130,7 +189,7 @@ export const DataTable = ({
       </div>
 
       {/* Empty State */}
-      {data.length === 0 && (
+      {sortedData.length === 0 && (
         <div className="text-center p-5 text-muted">
           <h5>
             {searchTerm || Object.values(filters).some(arr => arr.length > 0) 
@@ -141,7 +200,7 @@ export const DataTable = ({
       )}
 
       {/* Pagination */}
-      {data.length > itemsPerPage && (
+      {sortedData.length > itemsPerPage && (
         <div className="d-flex justify-content-center mt-4">
           <Pagination>
             <Pagination.First 

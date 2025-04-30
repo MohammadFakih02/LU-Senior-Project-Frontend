@@ -13,9 +13,11 @@ const Payments = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-
   const handleRowDoubleClick = useCallback((payment) => {
-    if (payment.status !== 'PAID') setSelectedPayment(payment) || setShowConfirmModal(true);
+    if (payment.status !== 'PAID') {
+      setSelectedPayment(payment);
+      setShowConfirmModal(true);
+    }
   }, []);
 
   const handleConfirmPayment = async (updateData) => {
@@ -24,18 +26,36 @@ const Payments = () => {
       await updatePayment(selectedPayment.paymentId, updateData); 
       setShowConfirmModal(false);
       refreshPayments();
-    } finally { setIsUpdating(false) }
+    } finally { 
+      setIsUpdating(false); 
+    }
   };
 
   const filterConfig = [
-    { type: 'status', options: ['PAID', 'PENDING', 'UNPAID'], label: 'Status' },
-    { type: 'bundle', options: [...new Set(payments.map(p => p.bundleName))].filter(Boolean), label: 'Bundle' },
-    { type: 'method', options: [...new Set(payments.map(p => p.paymentMethod))].filter(Boolean), label: 'Method' }
+    { 
+      type: 'status', 
+      options: ['PAID', 'PENDING', 'UNPAID'], 
+      label: 'Status' 
+    },
+    { 
+      type: 'bundle', 
+      options: [...new Set(payments.map(p => p.bundleName))].filter(Boolean), 
+      label: 'Bundle' 
+    },
+    { 
+      type: 'method', 
+      options: [...new Set(payments.map(p => p.paymentMethod))].filter(Boolean), 
+      label: 'Method' 
+    }
   ];
 
   const columns = [
     'paymentId', 'userId', 'userName', 'bundleName', 'amount', 'paymentDate', 'dueDate', 'paymentMethod', 'status'
-  ].map(key => ({ key, label: key.replace(/([A-Z])/g, ' $1').toUpperCase(), sortable: true }));
+  ].map(key => ({ 
+    key, 
+    label: key.replace(/([A-Z])/g, ' $1').toUpperCase(), 
+    sortable: true 
+  }));
 
   return (
     <div className="p-3">
@@ -56,8 +76,11 @@ const Payments = () => {
           </Button>
         )}
         renderRow={(payment) => (
-          <tr key={payment.paymentId} onDoubleClick={() => handleRowDoubleClick(payment)} 
-              className={payment.status === 'PAID' ? 'table-active' : ''}>
+          <tr 
+            key={payment.paymentId} 
+            onDoubleClick={() => handleRowDoubleClick(payment)} 
+            className={payment.status === 'PAID' ? 'table-active' : ''}
+          >
             {columns.map(({ key }) => (
               <td key={key} className="align-middle">
                 {key === 'status' ? (

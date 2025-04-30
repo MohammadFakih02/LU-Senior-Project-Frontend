@@ -1,5 +1,7 @@
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const AppContext = createContext();
 
@@ -19,16 +21,66 @@ export const AppProvider = ({ children }) => {
   const [bundlesLoading, setBundlesLoading] = useState(true);
   const [bundlesError, setBundlesError] = useState(null);
 
+  // Toast functions
+  const showSuccessToast = (message) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 2000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showErrorToast = (message) => {
+    toast.error(message, {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showWarningToast = (message) => {
+    toast.warn(message, {
+      position: "top-right",
+      autoClose: 4000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
+  const showInfoToast = (message) => {
+    toast.info(message, {
+      position: "top-right",
+      autoClose: 2500,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+    });
+  };
+
   // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/users");
-        console.log('Users API Response:', response.data); // Add for debugging
+        console.log('Users API Response:', response.data);
         setUsers(response.data);
         setUsersError(null);
       } catch (err) {
         setUsersError(err.message);
+        showErrorToast('Failed to load users');
         console.error('Users API Error:', err.response?.data || err.message);
       } finally {
         setUsersLoading(false);
@@ -43,6 +95,7 @@ export const AppProvider = ({ children }) => {
     const fetchPayments = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/payments");
+        console.log('Payments API Response:', response.data);
         setPayments(response.data);
         setPaymentsError(null);
       } catch (err) {
@@ -209,8 +262,13 @@ const updatePayment = async (paymentId, paymentData) => {
       refreshBundles, 
 
       createBundle,
-      updateBundle
+      updateBundle,
 
+      
+      showSuccessToast,
+      showErrorToast,
+      showWarningToast,
+      showInfoToast
     }}>
       {children}
     </AppContext.Provider>

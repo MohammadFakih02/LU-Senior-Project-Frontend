@@ -1,3 +1,4 @@
+// LayoutSidebar.jsx
 import { Col, Container, Row, Nav, Stack } from "react-bootstrap";
 import { Outlet, NavLink } from "react-router-dom";
 import { 
@@ -8,6 +9,7 @@ import {
   ChevronRight,
   LightningChargeFill
 } from "react-bootstrap-icons";
+import { ToastContainer } from "react-toastify";
 import './LayoutSidebar.css';
 
 const LayoutSidebar = () => {
@@ -93,6 +95,7 @@ const LayoutSidebar = () => {
           </div>
         </Col>
       </Row>
+      <ToastContainer />
     </Container>
   );
 };

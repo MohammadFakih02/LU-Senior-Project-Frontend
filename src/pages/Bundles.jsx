@@ -12,10 +12,11 @@ const Bundles = () => {
     bundles, 
     bundlesLoading,
     bundlesError,
+    refreshBundles
   } = useContext(AppContext);
 
   if (bundlesLoading)
-    return (
+    return (  
       <div
         className="d-flex justify-content-center align-items-center"
         style={{ height: "300px" }}
@@ -27,7 +28,7 @@ const Bundles = () => {
     return (
       <div className="p-3">
         <Alert variant="danger">{bundlesError}</Alert>
-        <Button variant="secondary" onClick={() => window.location.reload()}>
+        <Button variant="secondary" onClick={refreshBundles}>
           Retry
         </Button>
       </div>
@@ -40,7 +41,6 @@ const Bundles = () => {
       </div>
 
       <Row xs={1} md={2} lg={3} className="g-4">
-        {/* Existing Bundles */}
         {bundles.map((bundle) => (
           <Col key={bundle.bundleId}>
             <BundleCard 
