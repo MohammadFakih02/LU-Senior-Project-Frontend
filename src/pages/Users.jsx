@@ -69,16 +69,22 @@ const Users = () => {
       tableHandlers={tableHandlers}
       searchPlaceholder="Search users..."
       renderHeader={() => (
-        <div className="d-flex gap-2 ms-auto">
+        <div className="d-flex flex-column flex-md-row gap-2 ms-auto w-100 w-md-auto">
           <Button 
             variant="outline-secondary" 
             onClick={refreshUsers}
             disabled={usersLoading}
+            className="order-1 order-md-0"
           >
             <ArrowClockwise className={`me-1 ${usersLoading ? 'spin' : ''}`} />
             Refresh
           </Button>
-          <Button as={Link} to="/users/create" variant="primary">
+          <Button 
+            as={Link} 
+            to="/users/create" 
+            variant="primary"
+            className="order-0 order-md-1 mb-2 mb-md-0"
+          >
             Add New User
           </Button>
         </div>
@@ -91,10 +97,10 @@ const Users = () => {
           <td>{user.phone ? <TruncatedText text={user.phone} /> : '-'}</td>
           <td>
             {user.bundleNames?.length > 0 ? (
-              <div className="d-flex flex-wrap gap-1">
+              <div className="d-flex flex-wrap gap-1" style={{ maxWidth: '200px' }}>
                 {user.bundleNames.map((bundle, index) => (
-                  <Badge key={index} bg="info" className="text-truncate" style={{ maxWidth: '150px' }}>
-                    <TruncatedText text={bundle} />
+                  <Badge key={index} bg="info" className="text-truncate">
+                    <TruncatedText text={bundle} maxWidth={200} />
                   </Badge>
                 ))}
               </div>
@@ -118,6 +124,7 @@ const Users = () => {
           </td>
         </tr>
       )}
+      containerStyle={{ overflowX: 'auto' }}
     />
   );
 };

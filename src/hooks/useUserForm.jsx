@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Row, Col, Form } from "react-bootstrap";
 
 const useUserForm = ({ 
   isEditMode, 
@@ -14,6 +15,7 @@ const useUserForm = ({
   clearErrors,
   navigate
 }) => {
+  // State declarations
   const [apiError, setApiError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
   const [selectedBundles, setSelectedBundles] = useState([]);
@@ -35,6 +37,7 @@ const useUserForm = ({
       try {
         const userData = await fetchUserById(userId);
         
+        // Reset form with user data
         reset({
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -49,7 +52,8 @@ const useUserForm = ({
 
         setUserStatus(userData.status || "ACTIVE");
 
-        if (userData.bundles && userData.bundles.length > 0) {
+        // Set bundle subscriptions if they exist
+        if (userData.bundles?.length > 0) {
           setSelectedBundles(
             userData.bundles.map((bundle, index) => ({
               tempId: `${bundle.bundle.bundleId}-${index}-${Date.now()}`,
@@ -63,7 +67,6 @@ const useUserForm = ({
             }))
           );
         }
-        
       } catch (error) {
         showErrorToast(error.message || "Failed to load user data");
         setApiError(error.message || "Failed to load user data");
@@ -75,6 +78,7 @@ const useUserForm = ({
     loadUserData();
   }, [isEditMode, userId, fetchUserById, reset, showErrorToast]);
 
+  // Validate bundle locations
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
     let isValid = true;
@@ -94,6 +98,7 @@ const useUserForm = ({
     return isValid;
   }, [selectedBundles]);
 
+  // Prepare form submission
   const prepareSubmit = useCallback((data) => {
     if (!validateBundleLocations()) {
       showErrorToast("Please fix bundle location errors");
@@ -103,6 +108,7 @@ const useUserForm = ({
     setShowSaveConfirm(true);
   }, [validateBundleLocations, showErrorToast]);
 
+  // Handle form submission
   const onSubmit = useCallback(async () => {
     setShowSaveConfirm(false);
     setIsSubmitting(true);
@@ -161,9 +167,21 @@ const useUserForm = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, isEditMode, userId, userStatus, selectedBundles, updateUser, 
-      createUser, navigate, showErrorToast, clearErrors, setError]);
+  }, [
+    formData, 
+    isEditMode, 
+    userId, 
+    userStatus, 
+    selectedBundles, 
+    updateUser, 
+    createUser, 
+    navigate, 
+    showErrorToast, 
+    clearErrors, 
+    setError
+  ]);
 
+  // Bundle management functions
   const handleAddBundle = useCallback((bundleId) => {
     setClickedBundle(bundleId);
     setTimeout(() => setClickedBundle(null), 300);
@@ -187,6 +205,7 @@ const useUserForm = ({
     setSelectedBundles(prev => prev.filter(b => b.tempId !== tempId));
     if (activeAccordionKey === tempId) setActiveAccordionKey(null);
     
+    // Clear related validation errors
     const newErrors = {...validationErrors};
     Object.keys(newErrors).forEach(key => {
       if (key.includes(tempId)) delete newErrors[key];
@@ -200,6 +219,7 @@ const useUserForm = ({
       b.tempId === tempId ? {...b, [field]: value} : b
     ));
     
+    // Clear error if field is corrected
     if (validationErrors[`${field}-${tempId}`]) {
       const newErrors = {...validationErrors};
       delete newErrors[`${field}-${tempId}`];
@@ -213,6 +233,7 @@ const useUserForm = ({
     ));
   }, []);
 
+  // UI interaction functions
   const toggleAccordion = useCallback((key) => {
     setActiveAccordionKey(prev => prev === key ? null : key);
   }, []);
@@ -231,6 +252,7 @@ const useUserForm = ({
     }
   }, []);
 
+  // Render function for bundle location fields
   const renderBundleLocationFields = useCallback((bundle) => (
     <Row className="g-3">
       <Col md={6}>
@@ -294,6 +316,7 @@ const useUserForm = ({
     </Row>
   ), [handleBundleLocationChange, validationErrors]);
 
+  // Return all state and handlers
   return {
     apiError,
     validationErrors,

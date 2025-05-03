@@ -1,7 +1,6 @@
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 const AppContext = createContext();
 
@@ -21,63 +20,35 @@ export const AppProvider = ({ children }) => {
   const [bundlesLoading, setBundlesLoading] = useState(true);
   const [bundlesError, setBundlesError] = useState(null);
 
-  // Toast functions
+  // Toast cleanup on unmount
+  useEffect(() => {
+    return () => toast.dismiss();
+  }, []);
+
+  // Toast functions with unique IDs
   const showSuccessToast = (message) => {
-    toast.success(message, {
-      position: "top-right",
-      autoClose: 2000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+    toast.success(message, { toastId: `success-${message}` });
   };
 
   const showErrorToast = (message) => {
-    toast.error(message, {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+    toast.error(message, { toastId: `error-${message}`, autoClose: 5000 });
   };
 
   const showWarningToast = (message) => {
-    toast.warn(message, {
-      position: "top-right",
-      autoClose: 4000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+    toast.warn(message, { toastId: `warn-${message}`, autoClose: 4000 });
   };
 
   const showInfoToast = (message) => {
-    toast.info(message, {
-      position: "top-right",
-      autoClose: 2500,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-    });
+    toast.info(message, { toastId: `info-${message}`, autoClose: 2500 });
   };
 
-  // Fetch users
+  // Fetch users (without success toast)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/users");
         setUsers(response.data);
         setUsersError(null);
-        showSuccessToast('Users loaded successfully');
       } catch (err) {
         setUsersError(err.message);
         showErrorToast('Failed to load users');
@@ -90,14 +61,13 @@ export const AppProvider = ({ children }) => {
     fetchUsers();
   }, []);
 
-  // Fetch payments
+  // Fetch payments (without success toast)
   useEffect(() => {
     const fetchPayments = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/payments");
         setPayments(response.data);
         setPaymentsError(null);
-        showSuccessToast('Payments loaded successfully');
       } catch (err) {
         setPaymentsError(err.message);
         showErrorToast('Failed to load payments');
@@ -110,13 +80,13 @@ export const AppProvider = ({ children }) => {
     fetchPayments();
   }, []);
 
+  // Fetch bundles (without success toast)
   useEffect(() => {
     const fetchBundles = async () => {
       try {
         const response = await axios.get("http://localhost:8080/api/bundles");
         setBundles(response.data);
         setBundlesError(null);
-        showSuccessToast('Bundles loaded successfully');
       } catch (err) {
         setBundlesError(err.message);
         showErrorToast('Failed to load bundles');
@@ -129,7 +99,7 @@ export const AppProvider = ({ children }) => {
     fetchBundles();
   }, []);
 
-  // Refresh functions for each endpoint
+  // Refresh functions (with success toasts for user-initiated actions)
   const refreshUsers = async () => {
     setUsersLoading(true);
     try {
@@ -175,6 +145,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Bundle operations
   const createBundle = async (bundleData) => {
     try {
       await axios.post("http://localhost:8080/api/bundles", bundleData);
@@ -197,6 +168,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // User operations
   const createUser = async (userData) => {
     try {
       await axios.post("http://localhost:8080/api/users", userData);
@@ -229,6 +201,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Payment operations
   const updatePaymentStatus = async (paymentId, paymentData) => {
     try {
       await axios.post(`http://localhost:8080/api/payments/${paymentId}/process`, paymentData);
@@ -270,6 +243,7 @@ export const AppProvider = ({ children }) => {
       updatePaymentStatus,
       updatePayment,
       
+      // Bundles
       bundles, 
       bundlesLoading, 
       bundlesError, 
@@ -277,6 +251,7 @@ export const AppProvider = ({ children }) => {
       createBundle,
       updateBundle,
       
+      // Toasts
       showSuccessToast,
       showErrorToast,
       showWarningToast,

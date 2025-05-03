@@ -1,6 +1,5 @@
 import { Table, Pagination, Spinner, Alert, Form, Stack, Button } from 'react-bootstrap';
 import { MultiSelectDropdown } from './MultiSelectDropdown';
-import { ArrowClockwise } from 'react-bootstrap-icons';
 import { useState } from 'react';
 
 export const DataTable = ({
@@ -63,7 +62,6 @@ export const DataTable = ({
       if (filterType === 'method') {
         return filterValues.includes(item.paymentMethod);
       }
-      // Special handling for nested properties and arrays
       if (filterType === 'city') {
         return filterValues.includes(item.location?.city);
       }
@@ -73,17 +71,12 @@ export const DataTable = ({
           : item.bundleName
             ? [item.bundleName]
             : [];
-      
         return filterValues.some(value => itemBundles.includes(value));
       }
       return filterValues.includes(item[filterType]);
     });
 
-    
-    
-
     return matchesSearch && matchesFilters;
-    
   });
 
   // Sorting logic
@@ -128,13 +121,13 @@ export const DataTable = ({
   return (
     <div className="p-3" style={containerStyle}>
       {/* Header Section */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <h1 className="mb-0">{title}</h1>
-        <div className="d-flex align-items-center gap-3">
+        <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 w-100 w-md-auto">
           <Form.Control
             type="text"
             placeholder={searchPlaceholder}
-            style={{ width: '300px' }}
+            className="w-100 w-md-auto"
             value={searchTerm}
             onChange={handleSearchChange}
           />
@@ -162,6 +155,7 @@ export const DataTable = ({
             variant="outline-danger"
             onClick={clearFilters}
             disabled={Object.values(filters).every(arr => arr.length === 0) && !searchTerm}
+            className="mt-2 mt-md-0"
           >
             Clear Filters
           </Button>
@@ -169,7 +163,7 @@ export const DataTable = ({
       </div>
 
       {/* Table Section */}
-      <div className="table-responsive">
+      <div className="table-responsive" style={{ overflowX: 'auto' }}>
         <Table striped bordered hover className="mb-0">
           <thead className="table-dark">
             <tr>

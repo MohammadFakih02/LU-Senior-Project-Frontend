@@ -94,7 +94,11 @@ const Payments = () => {
             ))}
           </tr>
         )}
-        containerStyle={{ maxHeight: '550px', border: '1px solid #dee2e6' }}
+        containerStyle={{ 
+          maxHeight: '550px', 
+          border: '1px solid #dee2e6',
+          overflowX: 'auto'
+        }}
       />
 
       <PaymentConfirmationModal

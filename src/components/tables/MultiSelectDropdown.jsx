@@ -20,6 +20,10 @@ export const MultiSelectDropdown = ({
         overflowY: 'auto',
         minWidth: '250px',
         padding: '0.5rem 1rem',
+        position: 'absolute',
+        inset: '0px auto auto 0px',
+        margin: '0px',
+        transform: 'translate(0px, 40px)',
       }}>
         {options.map((option, index) => (
           <Form.Check
