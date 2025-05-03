@@ -66,13 +66,13 @@ const LayoutSidebar = () => {
               </Stack>
               {isMobile && (
                 <Button 
-                  variant="link" 
-                  className="position-absolute end-0 top-50 translate-middle-y text-white p-1"
-                  onClick={toggleSidebar}
-                  aria-label="Close sidebar"
-                >
-                  <X size={20} />
-                </Button>
+  variant="link" 
+  className="position-absolute end-0 top-50 translate-middle-y text-white p-2" // Increased padding
+  onClick={toggleSidebar}
+  aria-label="Close sidebar"
+>
+  <X size={28} /> {/* Larger size */}
+</Button>
               )}
             </div>
 
