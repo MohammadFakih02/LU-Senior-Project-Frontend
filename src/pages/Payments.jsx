@@ -25,7 +25,6 @@ const Payments = () => {
     try { 
       await updatePayment(selectedPayment.paymentId, updateData); 
       setShowConfirmModal(false);
-      refreshPayments();
     } finally { 
       setIsUpdating(false); 
     }

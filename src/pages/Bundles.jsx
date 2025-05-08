@@ -1,4 +1,3 @@
-// pages/Bundles.js
 import { Row, Col, Spinner, Alert, Card, Button, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { PlusLg, Trash } from 'react-bootstrap-icons';
@@ -33,7 +32,7 @@ const Bundles = () => {
     setIsDeleting(true);
     try {
       await axios.delete(`http://localhost:8080/api/bundles/${bundleToDelete.bundleId}`);
-      await refreshBundles();
+      await refreshBundles({ showToast: false });
       showSuccessToast(`Bundle "${bundleToDelete.name}" deleted successfully`);
     } catch (error) {
       showErrorToast(error.response?.data?.message || `Failed to delete bundle "${bundleToDelete.name}"`);
@@ -81,7 +80,6 @@ const Bundles = () => {
           </Col>
         ))}
 
-        {/* Add New Bundle Card */}
         <Col>
           <Card
             as={Link}
@@ -103,7 +101,6 @@ const Bundles = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
         <Modal.Header closeButton>
           <Modal.Title>Confirm Deletion</Modal.Title>

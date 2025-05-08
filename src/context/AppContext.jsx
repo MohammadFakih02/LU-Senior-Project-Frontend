@@ -5,27 +5,22 @@ import { toast } from 'react-toastify';
 const AppContext = createContext();
 
 export const AppProvider = ({ children }) => {
-  // Users state
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState(null);
 
-  // Payments state
   const [payments, setPayments] = useState([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
   const [paymentsError, setPaymentsError] = useState(null);
 
-  // Bundles state
   const [bundles, setBundles] = useState([]);
   const [bundlesLoading, setBundlesLoading] = useState(true);
   const [bundlesError, setBundlesError] = useState(null);
 
-  // Toast cleanup on unmount
   useEffect(() => {
     return () => toast.dismiss();
   }, []);
 
-  // Toast functions with unique IDs
   const showSuccessToast = (message) => {
     toast.success(message, { toastId: `success-${message}` });
   };
@@ -42,7 +37,6 @@ export const AppProvider = ({ children }) => {
     toast.info(message, { toastId: `info-${message}`, autoClose: 2500 });
   };
 
-  // Fetch users (without success toast)
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -61,7 +55,6 @@ export const AppProvider = ({ children }) => {
     fetchUsers();
   }, []);
 
-  // Fetch payments (without success toast)
   useEffect(() => {
     const fetchPayments = async () => {
       try {
@@ -80,7 +73,6 @@ export const AppProvider = ({ children }) => {
     fetchPayments();
   }, []);
 
-  // Fetch bundles (without success toast)
   useEffect(() => {
     const fetchBundles = async () => {
       try {
@@ -99,14 +91,15 @@ export const AppProvider = ({ children }) => {
     fetchBundles();
   }, []);
 
-  // Refresh functions (with success toasts for user-initiated actions)
-  const refreshUsers = async () => {
+  const refreshUsers = async (options = { showToast: true }) => {
     setUsersLoading(true);
     try {
       const response = await axios.get("http://localhost:8080/api/users");
       setUsers(response.data);
       setUsersError(null);
-      showSuccessToast('Users refreshed successfully');
+      if (options.showToast) {
+        showSuccessToast('Users refreshed successfully');
+      }
     } catch (err) {
       setUsersError(err.message);
       showErrorToast('Failed to refresh users');
@@ -115,13 +108,15 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const refreshPayments = async () => {
+  const refreshPayments = async (options = { showToast: true }) => {
     setPaymentsLoading(true);
     try {
       const response = await axios.get("http://localhost:8080/api/payments");
       setPayments(response.data);
       setPaymentsError(null);
-      showSuccessToast('Payments refreshed successfully');
+      if (options.showToast) {
+        showSuccessToast('Payments refreshed successfully');
+      }
     } catch (err) {
       setPaymentsError(err.message);
       showErrorToast('Failed to refresh payments');
@@ -130,13 +125,15 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const refreshBundles = async () => {
+  const refreshBundles = async (options = { showToast: true }) => {
     setBundlesLoading(true);
     try {
       const response = await axios.get("http://localhost:8080/api/bundles");
       setBundles(response.data);
       setBundlesError(null);
-      showSuccessToast('Bundles refreshed successfully');
+      if (options.showToast) {
+        showSuccessToast('Bundles refreshed successfully');
+      }
     } catch (err) {
       setBundlesError(err.message);
       showErrorToast('Failed to refresh bundles');
@@ -145,11 +142,10 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Bundle operations
   const createBundle = async (bundleData) => {
     try {
       await axios.post("http://localhost:8080/api/bundles", bundleData);
-      await refreshBundles();
+      await refreshBundles({ showToast: false });
       showSuccessToast('Bundle created successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to create bundle');
@@ -160,7 +156,7 @@ export const AppProvider = ({ children }) => {
   const updateBundle = async (bundleId, bundleData) => {
     try {
       await axios.put(`http://localhost:8080/api/bundles/${bundleId}`, bundleData);
-      await refreshBundles();
+      await refreshBundles({ showToast: false });
       showSuccessToast('Bundle updated successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to update bundle');
@@ -168,11 +164,10 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // User operations
   const createUser = async (userData) => {
     try {
       await axios.post("http://localhost:8080/api/users", userData);
-      await refreshUsers();
+      await refreshUsers({ showToast: false });
       showSuccessToast('User created successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to create user');
@@ -183,7 +178,7 @@ export const AppProvider = ({ children }) => {
   const updateUser = async (userId, userData) => {
     try {
       await axios.put(`http://localhost:8080/api/users/${userId}`, userData);
-      await refreshUsers();
+      await refreshUsers({ showToast: false });
       showSuccessToast('User updated successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to update user');
@@ -201,11 +196,10 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Payment operations
   const updatePaymentStatus = async (paymentId, paymentData) => {
     try {
       await axios.post(`http://localhost:8080/api/payments/${paymentId}/process`, paymentData);
-      await refreshPayments();
+      await refreshPayments({ showToast: false });
       showSuccessToast('Payment status updated successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to update payment status');
@@ -216,7 +210,7 @@ export const AppProvider = ({ children }) => {
   const updatePayment = async (paymentId, paymentData) => {
     try {
       await axios.put(`http://localhost:8080/api/payments/${paymentId}`, paymentData);
-      await refreshPayments();
+      await refreshPayments({ showToast: false });
       showSuccessToast('Payment updated successfully');
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to update payment');
@@ -226,7 +220,6 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      // Users
       users, 
       usersLoading, 
       usersError, 
@@ -235,7 +228,6 @@ export const AppProvider = ({ children }) => {
       updateUser,
       fetchUserById,
       
-      // Payments
       payments, 
       paymentsLoading, 
       paymentsError, 
@@ -243,7 +235,6 @@ export const AppProvider = ({ children }) => {
       updatePaymentStatus,
       updatePayment,
       
-      // Bundles
       bundles, 
       bundlesLoading, 
       bundlesError, 
@@ -251,7 +242,6 @@ export const AppProvider = ({ children }) => {
       createBundle,
       updateBundle,
       
-      // Toasts
       showSuccessToast,
       showErrorToast,
       showWarningToast,

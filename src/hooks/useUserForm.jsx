@@ -73,7 +73,6 @@ const useUserForm = ({
           setSelectedBundles([]);
         }
       } catch (error) {
-        showErrorToast(error.message || "Failed to load user data");
         setApiError(error.message || "Failed to load user data");
       } finally {
         setIsLoading(false);
@@ -81,7 +80,7 @@ const useUserForm = ({
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, showErrorToast, setUserStatus, setSelectedBundles, setApiError]);
+  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setSelectedBundles, setApiError]);
 
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
@@ -155,10 +154,8 @@ const useUserForm = ({
     try {
       if (isEditMode) {
         await updateUser(userId, userData);
-        showInfoToast("User updated successfully!");
       } else {
         await createUser(userData);
-        showInfoToast("User created successfully!");
       }
 
       navigate("/users");
@@ -191,11 +188,9 @@ const useUserForm = ({
              });
            }
         });
-        showErrorToast("Please fix the form errors");
       } else {
         const errorMsg = error.response?.data?.message || error.message || "An unexpected error occurred";
         setApiError(errorMsg);
-        showErrorToast(errorMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -210,7 +205,6 @@ const useUserForm = ({
     createUser,
     navigate,
     showErrorToast,
-    showInfoToast,
     clearErrors,
     setError,
     validateBundleLocations,
@@ -364,9 +358,7 @@ const useUserForm = ({
 
 
   const renderBundleLocationFields = useCallback((bundle) => (
-    // Use a single Row with consistent gutter for all fields within the accordion body
     <Row className="g-3">
-      {/* Address, City, Street, Google Maps URL take full width */}
       <Col md={12}>
         <Form.Group controlId={`bundleAddress-${bundle.tempId}`}>
           <Form.Label>Address</Form.Label>
@@ -405,7 +397,6 @@ const useUserForm = ({
           />
         </Form.Group>
       </Col>
-      {/* Building and Floor share a row, taking half width each */}
       <Col md={6}>
         <Form.Group controlId={`bundleBuilding-${bundle.tempId}`}>
           <Form.Label>Building</Form.Label>
@@ -427,7 +418,6 @@ const useUserForm = ({
         </Form.Group>
       </Col>
 
-       {/* Google Maps URL field takes full width */}
       <Col md={12}>
         <Form.Group controlId={`bundleGoogleMapsUrl-${bundle.tempId}`}>
           <Form.Label>Google Maps URL (Optional)</Form.Label>
@@ -439,7 +429,6 @@ const useUserForm = ({
         </Form.Group>
       </Col>
 
-      {/* Button takes full width and aligns right */}
       <Col md={12} className="d-flex justify-content-end">
         <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
           Pick on Map / View Map
