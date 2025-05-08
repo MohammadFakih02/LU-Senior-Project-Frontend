@@ -126,7 +126,8 @@ const existingBundle = bundles.find(b => b.id === Number(bundleId)) || bundles.f
                 <Form.Group controlId="price">
                   <Form.Label>Price ($)</Form.Label>
                   <Form.Control
-                    type="decimal"
+                    type="number"
+                    step="any"
                     {...register('price', { required: 'Price is required' })}
                     isInvalid={!!errors.price}
                     className="rounded-1"
