@@ -11,11 +11,11 @@ import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
 const UserForm = () => {
-  const { 
-    bundles, 
-    bundlesLoading, 
-    createUser, 
-    updateUser, 
+  const {
+    bundles,
+    bundlesLoading,
+    createUser,
+    updateUser,
     fetchUserById,
     showErrorToast,
     showWarningToast,
@@ -26,11 +26,23 @@ const UserForm = () => {
   const navigate = useNavigate();
   const isEditMode = !!userId;
 
-  const { register, handleSubmit, reset, formState: { errors }, setError, clearErrors } = useForm();
+  const { register, handleSubmit, reset, formState: { errors }, setError, clearErrors, getValues } = useForm({
+     defaultValues: {
+         firstName: '',
+         lastName: '',
+         email: '',
+         phone: '',
+         address: '',
+         city: '',
+         street: '',
+         building: '',
+         floor: '',
+         googleMapsUrl: '',
+     }
+  });
 
   const {
     apiError,
-    validationErrors,
     selectedBundles,
     isLoading,
     activeAccordionKey,
@@ -44,14 +56,14 @@ const UserForm = () => {
     setUserStatus,
     handleAddBundle,
     handleRemoveBundle,
-    handleBundleLocationChange,
     handleBundleStatusChange,
     toggleAccordion,
     confirmRemoveBundle,
     prepareSubmit,
     onSubmit,
     handleModalClose,
-    renderBundleLocationFields
+    renderBundleLocationFields,
+    handlePrimaryLocationMapPick,
   } = useUserForm({
     isEditMode,
     userId,
@@ -64,7 +76,8 @@ const UserForm = () => {
     reset,
     setError,
     clearErrors,
-    navigate
+    navigate,
+    getValues
   });
 
   if (isLoading || bundlesLoading) {
@@ -107,6 +120,7 @@ const UserForm = () => {
         ) : (
           isEditMode ? "Update User" : "Create User"
         )}
+        confirmDisabled={isSubmitting}
       />
 
       <div className="user-form-header">
@@ -134,7 +148,11 @@ const UserForm = () => {
                 setUserStatus={setUserStatus}
               />
 
-              <PrimaryLocationSection register={register} errors={errors} />
+              <PrimaryLocationSection
+                register={register}
+                errors={errors}
+                onMapPickClick={handlePrimaryLocationMapPick}
+              />
             </Row>
 
             <hr className="my-4" />
@@ -144,10 +162,10 @@ const UserForm = () => {
               selectedBundles={selectedBundles}
               clickedBundle={clickedBundle}
               activeAccordionKey={activeAccordionKey}
-              validationErrors={validationErrors}
+              // validationErrors is used by renderBundleLocationFields
+              // handleBundleLocationChange is used by renderBundleLocationFields
               handleAddBundle={handleAddBundle}
               confirmRemoveBundle={confirmRemoveBundle}
-              handleBundleLocationChange={handleBundleLocationChange}
               handleBundleStatusChange={handleBundleStatusChange}
               toggleAccordion={toggleAccordion}
               renderBundleLocationFields={renderBundleLocationFields}

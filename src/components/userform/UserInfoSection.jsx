@@ -3,7 +3,7 @@ import { Form, Row, Col, Button } from "react-bootstrap";
 const UserInfoSection = ({ register, errors, isEditMode, userStatus, setUserStatus }) => (
   <Col md={6}>
     <h4 className="mb-3">User Information</h4>
-    
+
     {isEditMode && (
       <Form.Group controlId="status" className="status-button-group">
         <Form.Label>Status</Form.Label>

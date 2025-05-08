@@ -1,21 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
-import { Row, Col, Form } from "react-bootstrap";
+import { Row, Col, Form, Button } from "react-bootstrap";
 
-const useUserForm = ({ 
-  isEditMode, 
-  userId, 
-  fetchUserById, 
-  createUser, 
-  updateUser, 
-  showErrorToast, 
-  showWarningToast, 
+const useUserForm = ({
+  isEditMode,
+  userId,
+  fetchUserById,
+  createUser,
+  updateUser,
+  showErrorToast,
+  showWarningToast,
   showInfoToast,
   reset,
   setError,
   clearErrors,
-  navigate
+  navigate,
+  getValues
 }) => {
-  // State declarations
   const [apiError, setApiError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
   const [selectedBundles, setSelectedBundles] = useState([]);
@@ -29,15 +29,17 @@ const useUserForm = ({
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [formData, setFormData] = useState(null);
 
-  // Load user data in edit mode
   useEffect(() => {
-    if (!isEditMode || !userId) return;
+    if (!isEditMode || !userId) {
+      setIsLoading(false);
+      return;
+    }
 
     const loadUserData = async () => {
+      setIsLoading(true);
       try {
         const userData = await fetchUserById(userId);
-        
-        // Reset form with user data
+
         reset({
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -48,24 +50,27 @@ const useUserForm = ({
           street: userData.location?.street,
           building: userData.location?.building,
           floor: userData.location?.floor,
+          googleMapsUrl: userData.location?.googleMapsUrl || "",
         });
 
         setUserStatus(userData.status || "ACTIVE");
 
-        // Set bundle subscriptions if they exist
         if (userData.bundles?.length > 0) {
           setSelectedBundles(
             userData.bundles.map((bundle, index) => ({
-              tempId: `${bundle.bundle.bundleId}-${index}-${Date.now()}`,
+              tempId: `${bundle.bundle.bundleId}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               bundleId: bundle.bundle.bundleId,
               address: bundle.bundleLocation?.address || "",
               city: bundle.bundleLocation?.city || "",
               street: bundle.bundleLocation?.street || "",
               building: bundle.bundleLocation?.building || "",
               floor: bundle.bundleLocation?.floor || "",
+              googleMapsUrl: bundle.bundleLocation?.googleMapsUrl || "",
               status: bundle.status || "ACTIVE"
             }))
           );
+        } else {
+          setSelectedBundles([]);
         }
       } catch (error) {
         showErrorToast(error.message || "Failed to load user data");
@@ -76,9 +81,8 @@ const useUserForm = ({
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, showErrorToast]);
+  }, [isEditMode, userId, fetchUserById, reset, showErrorToast, setUserStatus, setSelectedBundles, setApiError]);
 
-  // Validate bundle locations
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
     let isValid = true;
@@ -98,7 +102,6 @@ const useUserForm = ({
     return isValid;
   }, [selectedBundles]);
 
-  // Prepare form submission
   const prepareSubmit = useCallback((data) => {
     if (!validateBundleLocations()) {
       showErrorToast("Please fix bundle location errors");
@@ -108,55 +111,85 @@ const useUserForm = ({
     setShowSaveConfirm(true);
   }, [validateBundleLocations, showErrorToast]);
 
-  // Handle form submission
   const onSubmit = useCallback(async () => {
     setShowSaveConfirm(false);
     setIsSubmitting(true);
     setApiError("");
-    setValidationErrors({});
     clearErrors();
+    setValidationErrors({});
+
+    if (!validateBundleLocations()) {
+         showErrorToast("Bundle validation failed. Please re-check.");
+         setIsSubmitting(false);
+         return;
+    }
+
+    const userData = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      status: userStatus,
+      location: {
+        address: formData.address,
+        city: formData.city,
+        street: formData.street,
+        building: formData.building,
+        floor: formData.floor,
+        googleMapsUrl: formData.googleMapsUrl || null,
+      },
+      bundleSubscriptions: selectedBundles.map((bundle) => ({
+        bundleId: bundle.bundleId,
+        status: bundle.status,
+        location: {
+          address: bundle.address,
+          city: bundle.city,
+          street: bundle.street,
+          building: bundle.building,
+          floor: bundle.floor,
+          googleMapsUrl: bundle.googleMapsUrl || null,
+        },
+      })),
+    };
 
     try {
-      const userData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        status: userStatus,
-        location: {
-          address: formData.address,
-          city: formData.city,
-          street: formData.street,
-          building: formData.building,
-          floor: formData.floor,
-        },
-        bundleSubscriptions: selectedBundles.map((bundle) => ({
-          bundleId: bundle.bundleId,
-          status: bundle.status,
-          location: {
-            address: bundle.address,
-            city: bundle.city,
-            street: bundle.street,
-            building: bundle.building,
-            floor: bundle.floor,
-          },
-        })),
-      };
-
       if (isEditMode) {
         await updateUser(userId, userData);
+        showInfoToast("User updated successfully!");
       } else {
         await createUser(userData);
+        showInfoToast("User created successfully!");
       }
 
-      setTimeout(() => navigate("/users"), 1000);
+      navigate("/users");
     } catch (error) {
+       console.error("Submission error:", error);
       if (error.response?.data?.errors) {
         error.response.data.errors.forEach((err) => {
-          setError(err.field, {
-            type: "server",
-            message: err.message,
-          });
+           const bundleMatch = err.field.match(/^bundleSubscriptions\[(\d+)\].location\.(\w+)$/);
+           if(bundleMatch) {
+              const index = parseInt(bundleMatch[1], 10);
+              const field = bundleMatch[2];
+              const bundleTempId = selectedBundles[index]?.tempId;
+              if(bundleTempId) {
+                 setValidationErrors(prev => ({
+                    ...prev,
+                    [`${field}-${bundleTempId}`]: err.message
+                 }));
+              } else {
+                 console.warn(`Server error for bundle index ${index} not found in state.`);
+              }
+           } else if (err.field === 'location.address') {
+               setError('address', { type: 'server', message: err.message });
+           } else if (err.field === 'location.city') {
+               setError('city', { type: 'server', message: err.message });
+           }
+           else {
+             setError(err.field, {
+               type: "server",
+               message: err.message,
+             });
+           }
         });
         showErrorToast("Please fix the form errors");
       } else {
@@ -168,32 +201,99 @@ const useUserForm = ({
       setIsSubmitting(false);
     }
   }, [
-    formData, 
-    isEditMode, 
-    userId, 
-    userStatus, 
-    selectedBundles, 
-    updateUser, 
-    createUser, 
-    navigate, 
-    showErrorToast, 
-    clearErrors, 
-    setError
+    formData,
+    isEditMode,
+    userId,
+    userStatus,
+    selectedBundles,
+    updateUser,
+    createUser,
+    navigate,
+    showErrorToast,
+    showInfoToast,
+    clearErrors,
+    setError,
+    validateBundleLocations,
+    setValidationErrors
   ]);
 
-  // Bundle management functions
+   const openGoogleMaps = useCallback((locationData, existingUrl) => {
+    let urlToOpen = '';
+
+    const googleMapsUrlRegex = /^(https?:\/\/)?(www\.)?google\.com\/maps\/.+/i;
+
+    if (existingUrl && googleMapsUrlRegex.test(existingUrl)) {
+        urlToOpen = existingUrl;
+    } else {
+        const { address, city, street, building, floor } = locationData;
+        const queryParts = [];
+        if (address) queryParts.push(address);
+        if (building) queryParts.push(`Building ${building}`);
+        if (floor) queryParts.push(`Floor ${floor}`);
+        if (street) queryParts.push(street);
+        if (city) queryParts.push(city);
+
+        const queryString = queryParts.join(', ');
+
+        if (queryString) {
+            urlToOpen = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryString)}`;
+        } else {
+             urlToOpen = `https://www.google.com/maps`;
+             showWarningToast("No address data available to generate search query. Opening general Google Maps.");
+        }
+    }
+
+    if (urlToOpen) {
+        window.open(urlToOpen, '_blank');
+    }
+   }, [showWarningToast]);
+
+  const handlePrimaryLocationMapPick = useCallback(() => {
+    const primaryLocationData = getValues([
+      'address',
+      'city',
+      'street',
+      'building',
+      'floor',
+      'googleMapsUrl'
+    ]).reduce((acc, val, index) => {
+        const fields = ['address', 'city', 'street', 'building', 'floor', 'googleMapsUrl'];
+        acc[fields[index]] = val;
+        return acc;
+    }, {});
+
+    openGoogleMaps(primaryLocationData, primaryLocationData.googleMapsUrl);
+  }, [getValues, openGoogleMaps]);
+
+
+  const handleBundleLocationMapPick = useCallback((tempId) => {
+    const bundle = selectedBundles.find(b => b.tempId === tempId);
+    if (bundle) {
+      const bundleLocationData = {
+        address: bundle.address,
+        city: bundle.city,
+        street: bundle.street,
+        building: bundle.building,
+        floor: bundle.floor,
+      };
+      openGoogleMaps(bundleLocationData, bundle.googleMapsUrl);
+    }
+  }, [selectedBundles, openGoogleMaps]);
+
+
   const handleAddBundle = useCallback((bundleId) => {
     setClickedBundle(bundleId);
     setTimeout(() => setClickedBundle(null), 300);
 
     const newBundle = {
-      tempId: `${bundleId}-${Date.now()}`,
+      tempId: `${bundleId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       bundleId,
       address: "",
       city: "",
       street: "",
       building: "",
       floor: "",
+      googleMapsUrl: "",
       status: "ACTIVE"
     };
     setSelectedBundles(prev => [...prev, newBundle]);
@@ -202,38 +302,50 @@ const useUserForm = ({
   }, [showInfoToast]);
 
   const handleRemoveBundle = useCallback((tempId) => {
-    setSelectedBundles(prev => prev.filter(b => b.tempId !== tempId));
-    if (activeAccordionKey === tempId) setActiveAccordionKey(null);
-    
-    // Clear related validation errors
-    const newErrors = {...validationErrors};
-    Object.keys(newErrors).forEach(key => {
-      if (key.includes(tempId)) delete newErrors[key];
+    setSelectedBundles(prev => {
+        const updatedBundles = prev.filter(b => b.tempId !== tempId);
+        if (activeAccordionKey === tempId) {
+             setActiveAccordionKey(null);
+        }
+        return updatedBundles;
     });
-    setValidationErrors(newErrors);
+
+    setValidationErrors(prev => {
+      const newErrors = {...prev};
+      Object.keys(newErrors).forEach(key => {
+        if (key.includes(tempId)) {
+           delete newErrors[key];
+        }
+      });
+      return newErrors;
+    });
+
     showWarningToast("Bundle removed");
-  }, [activeAccordionKey, validationErrors, showWarningToast]);
+  }, [activeAccordionKey, setValidationErrors, showWarningToast]);
 
   const handleBundleLocationChange = useCallback((tempId, field, value) => {
-    setSelectedBundles(prev => prev.map(b => 
+    setSelectedBundles(prev => prev.map(b =>
       b.tempId === tempId ? {...b, [field]: value} : b
     ));
-    
-    // Clear error if field is corrected
-    if (validationErrors[`${field}-${tempId}`]) {
-      const newErrors = {...validationErrors};
-      delete newErrors[`${field}-${tempId}`];
-      setValidationErrors(newErrors);
+
+    if ((field === 'address' || field === 'city') && value) {
+      setValidationErrors(prev => {
+        const newErrors = {...prev};
+        if (newErrors[`${field}-${tempId}`]) {
+           delete newErrors[`${field}-${tempId}`];
+        }
+        return newErrors;
+      });
     }
-  }, [validationErrors]);
+  }, [setValidationErrors]);
+
 
   const handleBundleStatusChange = useCallback((tempId, newStatus) => {
-    setSelectedBundles(prev => prev.map(b => 
+    setSelectedBundles(prev => prev.map(b =>
       b.tempId === tempId ? {...b, status: newStatus} : b
     ));
   }, []);
 
-  // UI interaction functions
   const toggleAccordion = useCallback((key) => {
     setActiveAccordionKey(prev => prev === key ? null : key);
   }, []);
@@ -249,13 +361,17 @@ const useUserForm = ({
       setBundleToDelete(null);
     } else {
       setShowSaveConfirm(false);
+      setFormData(null);
+      setIsSubmitting(false);
     }
   }, []);
 
-  // Render function for bundle location fields
+
   const renderBundleLocationFields = useCallback((bundle) => (
+    // Use a single Row with consistent gutter for all fields within the accordion body
     <Row className="g-3">
-      <Col md={6}>
+      {/* Address, City, Street, Google Maps URL take full width */}
+      <Col md={12}>
         <Form.Group controlId={`bundleAddress-${bundle.tempId}`}>
           <Form.Label>Address</Form.Label>
           <Form.Control
@@ -269,7 +385,7 @@ const useUserForm = ({
           </Form.Control.Feedback>
         </Form.Group>
       </Col>
-      <Col md={6}>
+      <Col md={12}>
         <Form.Group controlId={`bundleCity-${bundle.tempId}`}>
           <Form.Label>City</Form.Label>
           <Form.Control
@@ -283,7 +399,7 @@ const useUserForm = ({
           </Form.Control.Feedback>
         </Form.Group>
       </Col>
-      <Col md={6}>
+      <Col md={12}>
         <Form.Group controlId={`bundleStreet-${bundle.tempId}`}>
           <Form.Label>Street</Form.Label>
           <Form.Control
@@ -293,7 +409,8 @@ const useUserForm = ({
           />
         </Form.Group>
       </Col>
-      <Col md={3}>
+      {/* Building and Floor share a row, taking half width each */}
+      <Col md={6}>
         <Form.Group controlId={`bundleBuilding-${bundle.tempId}`}>
           <Form.Label>Building</Form.Label>
           <Form.Control
@@ -303,7 +420,7 @@ const useUserForm = ({
           />
         </Form.Group>
       </Col>
-      <Col md={3}>
+      <Col md={6}>
         <Form.Group controlId={`bundleFloor-${bundle.tempId}`}>
           <Form.Label>Floor</Form.Label>
           <Form.Control
@@ -313,10 +430,30 @@ const useUserForm = ({
           />
         </Form.Group>
       </Col>
-    </Row>
-  ), [handleBundleLocationChange, validationErrors]);
 
-  // Return all state and handlers
+       {/* Google Maps URL field takes full width */}
+      <Col md={12}>
+        <Form.Group controlId={`bundleGoogleMapsUrl-${bundle.tempId}`}>
+          <Form.Label>Google Maps URL (Optional)</Form.Label>
+          <Form.Control
+            type="text"
+            value={bundle.googleMapsUrl}
+            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'googleMapsUrl', e.target.value)}
+          />
+        </Form.Group>
+      </Col>
+
+      {/* Button takes full width and aligns right */}
+      <Col md={12} className="d-flex justify-content-end">
+        <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
+          Pick on Map / View Map
+        </Button>
+      </Col>
+
+    </Row>
+  ), [handleBundleLocationChange, handleBundleLocationMapPick, validationErrors]);
+
+
   return {
     apiError,
     validationErrors,
@@ -340,7 +477,8 @@ const useUserForm = ({
     prepareSubmit,
     onSubmit,
     handleModalClose,
-    renderBundleLocationFields
+    renderBundleLocationFields,
+    handlePrimaryLocationMapPick,
   };
 };
 

@@ -8,6 +8,7 @@ const ConfirmationModal = ({
   onConfirm,
   confirmVariant = "primary",
   confirmText,
+  confirmDisabled = false,
 }) => (
   <Modal show={show} onHide={onCancel} centered>
     <Modal.Header closeButton>
@@ -15,10 +16,10 @@ const ConfirmationModal = ({
     </Modal.Header>
     <Modal.Body>{body}</Modal.Body>
     <Modal.Footer>
-      <Button variant="secondary" onClick={onCancel}>
+      <Button variant="secondary" onClick={onCancel} disabled={confirmDisabled}>
         Cancel
       </Button>
-      <Button variant={confirmVariant} onClick={onConfirm}>
+      <Button variant={confirmVariant} onClick={onConfirm} disabled={confirmDisabled}>
         {confirmText}
       </Button>
     </Modal.Footer>

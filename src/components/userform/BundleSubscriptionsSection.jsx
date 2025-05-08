@@ -6,75 +6,14 @@ const BundleSubscriptionsSection = ({
   selectedBundles,
   clickedBundle,
   activeAccordionKey,
-  validationErrors,
+  // validationErrors is used by renderBundleLocationFields, passed implicitly
   handleAddBundle,
   confirmRemoveBundle,
-  handleBundleLocationChange,
+  // handleBundleLocationChange is used by renderBundleLocationFields, passed implicitly
   handleBundleStatusChange,
-  toggleAccordion
+  toggleAccordion,
+  renderBundleLocationFields
 }) => {
-  const renderBundleLocationFields = (bundle) => (
-    <Row className="g-3">
-      <Col md={6}>
-        <Form.Group controlId={`bundleAddress-${bundle.tempId}`}>
-          <Form.Label>Address</Form.Label>
-          <Form.Control
-            type="text"
-            value={bundle.address}
-            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'address', e.target.value)}
-            isInvalid={!!validationErrors[`address-${bundle.tempId}`]}
-          />
-          <Form.Control.Feedback type="invalid">
-            {validationErrors[`address-${bundle.tempId}`]}
-          </Form.Control.Feedback>
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group controlId={`bundleCity-${bundle.tempId}`}>
-          <Form.Label>City</Form.Label>
-          <Form.Control
-            type="text"
-            value={bundle.city}
-            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'city', e.target.value)}
-            isInvalid={!!validationErrors[`city-${bundle.tempId}`]}
-          />
-          <Form.Control.Feedback type="invalid">
-            {validationErrors[`city-${bundle.tempId}`]}
-          </Form.Control.Feedback>
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group controlId={`bundleStreet-${bundle.tempId}`}>
-          <Form.Label>Street</Form.Label>
-          <Form.Control
-            type="text"
-            value={bundle.street}
-            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'street', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={3}>
-        <Form.Group controlId={`bundleBuilding-${bundle.tempId}`}>
-          <Form.Label>Building</Form.Label>
-          <Form.Control
-            type="text"
-            value={bundle.building}
-            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'building', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-      <Col md={3}>
-        <Form.Group controlId={`bundleFloor-${bundle.tempId}`}>
-          <Form.Label>Floor</Form.Label>
-          <Form.Control
-            type="text"
-            value={bundle.floor}
-            onChange={(e) => handleBundleLocationChange(bundle.tempId, 'floor', e.target.value)}
-          />
-        </Form.Group>
-      </Col>
-    </Row>
-  );
 
   return (
     <div className="mb-4">
@@ -124,7 +63,7 @@ const BundleSubscriptionsSection = ({
                           </Badge>
                         )}
                       </div>
-                      <div 
+                      <div
                         className="ms-3 me-2 btn btn-danger btn-sm"
                         onClick={(e) => {
                           e.stopPropagation();
