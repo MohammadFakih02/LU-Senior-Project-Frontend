@@ -50,7 +50,7 @@ const PaymentConfirmationModal = ({
             value={selectedMethod}
             onChange={(e) => setSelectedMethod(e.target.value)}
           >
-            <option value="">{payment?.paymentMethod || 'Select method'}</option>
+            <option value="" disabled>Select method</option>
             {methods.map(method => (
               <option key={method} value={method}>{method}</option>
             ))}
