@@ -1,22 +1,51 @@
 // pages/Bundles.js
-import { Row, Col, Spinner, Alert, Card, Button } from 'react-bootstrap';
+import { Row, Col, Spinner, Alert, Card, Button, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { PlusLg } from 'react-bootstrap-icons';
+import { PlusLg, Trash } from 'react-bootstrap-icons';
 import './styles/BundleCreationButton.css';
-import { useContext } from 'react';
+import { useContext, useState } from 'react';
 import AppContext from '../context/AppContext';
 import BundleCard from '../components/BundleCard';
+import axios from 'axios';
 
 const Bundles = () => {
   const {
-    bundles, 
+    bundles,
     bundlesLoading,
     bundlesError,
-    refreshBundles
+    refreshBundles,
+    showSuccessToast,
+    showErrorToast
   } = useContext(AppContext);
 
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [bundleToDelete, setBundleToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteClick = (bundle) => {
+    setBundleToDelete(bundle);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bundleToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await axios.delete(`http://localhost:8080/api/bundles/${bundleToDelete.bundleId}`);
+      await refreshBundles();
+      showSuccessToast(`Bundle "${bundleToDelete.name}" deleted successfully`);
+    } catch (error) {
+      showErrorToast(error.response?.data?.message || `Failed to delete bundle "${bundleToDelete.name}"`);
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteModal(false);
+      setBundleToDelete(null);
+    }
+  };
+
   if (bundlesLoading)
-    return (  
+    return (
       <div
         className="d-flex justify-content-center align-items-center"
         style={{ height: "300px" }}
@@ -43,19 +72,20 @@ const Bundles = () => {
       <Row xs={1} md={2} lg={3} className="g-4">
         {bundles.map((bundle) => (
           <Col key={bundle.bundleId}>
-            <BundleCard 
+            <BundleCard
               bundle={bundle}
               variant="large"
               showActions={true}
+              onDelete={() => handleDeleteClick(bundle)}
             />
           </Col>
         ))}
-        
+
         {/* Add New Bundle Card */}
         <Col>
-          <Card 
-            as={Link} 
-            to="/bundles/create" 
+          <Card
+            as={Link}
+            to="/bundles/create"
             className="h-100 shadow-sm add-card"
             style={{ textDecoration: 'none' }}
           >
@@ -72,6 +102,32 @@ const Bundles = () => {
           No bundles found
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Deletion</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to delete the bundle "{bundleToDelete?.name}"? This action cannot be undone.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleConfirmDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+            ) : (
+              'Delete Bundle'
+            )}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

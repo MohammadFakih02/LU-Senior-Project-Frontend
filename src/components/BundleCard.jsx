@@ -1,12 +1,14 @@
 import { Card, Badge, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
+import { Trash } from 'react-bootstrap-icons';
 
-const BundleCard = ({ 
-  bundle, 
-  variant = 'large', 
-  onClick, 
+const BundleCard = ({
+  bundle,
+  variant = 'large',
+  onClick,
   isClicked,
-  showActions = true 
+  showActions = true,
+  onDelete // Added onDelete prop
 }) => {
   const sizeStyles = {
     large: {
@@ -26,7 +28,7 @@ const BundleCard = ({
   const { headerClass, titleClass, bodyClass, textClass } = sizeStyles[variant];
 
   return (
-    <Card 
+    <Card
       className={`h-100 shadow-sm ${isClicked ? 'click-animation' : ''}`}
       onClick={onClick}
       style={{
@@ -47,7 +49,7 @@ const BundleCard = ({
         <Card.Text className={`text-muted ${textClass}`}>
           {bundle.description}
         </Card.Text>
-        
+
         <div className={textClass}>
           <div className="d-flex justify-content-between">
             <span>Price:</span>
@@ -66,14 +68,21 @@ const BundleCard = ({
 
       {showActions && variant === 'large' && (
         <Card.Footer className="d-flex justify-content-end gap-2">
-          <Button variant="info" size="sm">View</Button>
-          <Button 
-            variant="warning" 
+          {/* <Button variant="info" size="sm">View</Button> */}
+          <Button
+            variant="warning"
             size="sm"
-            as={Link} 
+            as={Link}
             to={`/bundles/edit/${bundle.id || bundle.bundleId}`}
           >
             Edit
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={onDelete} // Call onDelete prop when clicked
+          >
+            <Trash size={16} /> Delete
           </Button>
         </Card.Footer>
       )}
