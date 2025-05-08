@@ -225,12 +225,8 @@ const useUserForm = ({
     if (existingUrl && googleMapsUrlRegex.test(existingUrl)) {
         urlToOpen = existingUrl;
     } else {
-        const { address, city, street, building, floor } = locationData;
+        const {  city } = locationData;
         const queryParts = [];
-        if (address) queryParts.push(address);
-        if (building) queryParts.push(`Building ${building}`);
-        if (floor) queryParts.push(`Floor ${floor}`);
-        if (street) queryParts.push(street);
         if (city) queryParts.push(city);
 
         const queryString = queryParts.join(', ');
