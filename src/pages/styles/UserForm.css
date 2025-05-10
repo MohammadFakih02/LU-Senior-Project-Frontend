@@ -1,0 +1,77 @@
+/* UserForm.css */
+
+/* Click animation for bundle cards */
+.click-animation {
+    animation: pulse 0.3s ease;
+  }
+  
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); box-shadow: 0 0 10px rgba(13, 110, 253, 0.5); }
+    100% { transform: scale(1); }
+  }
+  
+  /* Form layout styles */
+  .user-form-container {
+    padding: 1rem;
+  }
+  
+  .user-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .user-form-header h1 {
+    margin-bottom: 0;
+  }
+  
+  /* Card styles */
+  .user-form-card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  }
+  
+  .user-form-card-body {
+    padding: 1.5rem;
+  }
+  
+  /* Accordion styles */
+  .accordion-header-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding-right: 0.5rem;
+  }
+  
+  .accordion-button-custom {
+    flex-grow: 1;
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+  }
+  
+  /* Status button styles */
+  .status-button-group {
+    margin-bottom: 1rem;
+  }
+  
+  .status-button {
+    margin-right: 0.5rem;
+  }
+  
+  /* Form group styles */
+  .form-group-custom {
+    margin-bottom: 1rem;
+  }
+  
+  /* Loading spinner container */
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50vh;
+  }
