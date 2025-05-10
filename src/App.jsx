@@ -1,4 +1,4 @@
-import { createHashRouter, RouterProvider } from 'react-router-dom';
+import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
 import Bundles from './pages/Bundles';
@@ -6,50 +6,55 @@ import BundleForm from './pages/BundleForm';
 import UserForm from './pages/UserForm';
 import UserDetails from './pages/UserDetails';
 import Payments from './pages/Payments';
+import NotFound from './pages/NotFound';
 
 const router = createHashRouter([
   {
     path: '/',
-    element: <LayoutSidebar/>,
+    element: <LayoutSidebar />,
     children: [
       {
+        index: true,
+        element: <Navigate to="/users" replace />,
+      },
+      {
         path: 'users',
-        element: <Users/>
+        element: <Users />,
       },
       {
         path: 'users/edit/:userId',
-        element: <UserForm/>
+        element: <UserForm />,
       },
       {
-        path: 'users/create/',
-        element: <UserForm/>
+        path: 'users/create',
+        element: <UserForm />,
       },
       {
         path: 'users/:userId',
-        element: <UserDetails />
+        element: <UserDetails />,
       },
       {
         path: 'bundles',
-        element: <Bundles/>
+        element: <Bundles />,
       },
       {
         path: 'bundles/create',
-        element: <BundleForm />
+        element: <BundleForm />,
       },
       {
         path: 'bundles/edit/:bundleId',
-        element: <BundleForm />
+        element: <BundleForm />,
       },
       {
         path: 'payments',
-        element: <Payments/>
+        element: <Payments />,
       },
       {
         path: '*',
-        element: <div>Select a page from the sidebar</div>,
-      }
-    ]
-  }
+        element: <NotFound />,
+      },
+    ],
+  },
 ]);
 
 function App() {
