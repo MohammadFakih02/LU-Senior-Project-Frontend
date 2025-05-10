@@ -1,6 +1,13 @@
+// App.jsx
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
-import Users from './pages/User';
+import Users from './pages/Users';
+import Bundles from './pages/Bundles';// Add this import
+import BundleForm from './pages/BundleForm';
+import UserForm from './pages/UserForm';
+import UserDetails from './pages/UserDetails';
+import Payments from './pages/Payments';
+
 
 const router = createBrowserRouter([
   {
@@ -9,7 +16,35 @@ const router = createBrowserRouter([
     children: [
       {
         path: 'users',
-        element:<Users/>
+        element: <Users/>
+      },
+      {
+        path: 'users/edit/:userId',
+        element: <UserForm/>
+      },
+      {
+        path: 'users/create/',
+        element: <UserForm/>
+      },
+      {
+        path:"/users/:userId",
+        element:<UserDetails />
+      },
+      {
+        path: 'bundles',
+        element: <Bundles/>
+      },
+      {
+        path: 'bundles/create',
+        element: <BundleForm />
+      },
+      {
+        path: 'bundles/edit/:bundleId',
+        element: <BundleForm />
+      },
+      {
+        path: 'payments',
+        element: <Payments/>
       },
       {
         path: '*',
