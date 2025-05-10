@@ -8,12 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist --dotfiles",
-    "force-redeploy": "rm -rf node_modules/.cache && npm run build && git commit --allow-empty -m 'Force redeploy' && git push && npm run deploy"
-  }
-,
+    "preview": "vite preview"
+  },
   "dependencies": {
     "axios": "^1.8.4",
     "bootstrap": "^5.3.5",

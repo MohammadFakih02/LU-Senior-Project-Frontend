@@ -9,18 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Clear build cache
-        run: rm -rf node_modules/.cache
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
-      
+
       - run: npm ci
       - run: npm run build
-      
+
       - name: Deploy to GH Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -28,4 +25,4 @@ jobs:
           publish_dir: ./dist
           enable_jekyll: false
           keep_files: false
-          dotfiles: true  # Ensures .nojekyll is deployed
+          dotfiles: true
