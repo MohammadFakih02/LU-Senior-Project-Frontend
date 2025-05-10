@@ -24,5 +24,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           enable_jekyll: false
-          keep_files: false
-          dotfiles: true
