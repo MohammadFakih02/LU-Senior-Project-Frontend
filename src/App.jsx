@@ -1,15 +1,13 @@
-// App.jsx
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createHashRouter, RouterProvider } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
-import Bundles from './pages/Bundles';// Add this import
+import Bundles from './pages/Bundles';
 import BundleForm from './pages/BundleForm';
 import UserForm from './pages/UserForm';
 import UserDetails from './pages/UserDetails';
 import Payments from './pages/Payments';
 
-
-const router = createBrowserRouter([
+const router = createHashRouter([
   {
     path: '/',
     element: <LayoutSidebar/>,
@@ -27,8 +25,8 @@ const router = createBrowserRouter([
         element: <UserForm/>
       },
       {
-        path:"/users/:userId",
-        element:<UserDetails />
+        path: 'users/:userId',
+        element: <UserDetails />
       },
       {
         path: 'bundles',
