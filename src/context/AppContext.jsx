@@ -189,7 +189,7 @@ export const AppProvider = ({ children }) => {
   const fetchUserById = async (userId) => {
     try {
       const response = await axios.get(`http://localhost:8080/api/users/${userId}`);
-      return response.data;
+      return response.data; // This returns the object with "userId" key
     } catch (error) {
       showErrorToast(error.response?.data?.message || 'Failed to fetch user');
       throw error.response?.data || error;
@@ -218,6 +218,18 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const createPayment = async (paymentData) => {
+    try {
+      await axios.post("http://localhost:8080/api/payments", paymentData);
+      await refreshPayments({ showToast: false });
+      showSuccessToast('Payment created successfully');
+    } catch (error) {
+      console.error("Create Payment API Error:", error.response?.data || error.message);
+      showErrorToast(error.response?.data?.message || 'Failed to create payment');
+      throw error.response?.data || error;
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       users, 
@@ -234,6 +246,7 @@ export const AppProvider = ({ children }) => {
       refreshPayments,
       updatePaymentStatus,
       updatePayment,
+      createPayment,
       
       bundles, 
       bundlesLoading, 

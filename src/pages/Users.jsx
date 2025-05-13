@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tooltip } from 'react-tippy';
 import 'react-tippy/dist/tippy.css';
 import { Badge, Button } from 'react-bootstrap';
@@ -24,6 +24,11 @@ const Users = () => {
     bundle: []
   });
 
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const currentFlow = queryParams.get('flow'); // Will be "CP" or null
+
   const filterConfig = [
     { 
       type: 'status',
@@ -46,7 +51,7 @@ const Users = () => {
   ];
 
   const columns = [
-    { key: 'id', label: 'ID', sortable: true },
+    { key: 'id', label: 'ID', sortable: true }, // The user list from /api/users has "id"
     { key: 'name', label: 'Name', sortable: true },
     { key: 'email', label: 'Email', sortable: true },
     { key: 'phone', label: 'Phone', sortable: true },
@@ -55,12 +60,16 @@ const Users = () => {
     { key: 'status', label: 'Status', sortable: true },
     { key: 'actions', label: 'Actions' }
   ];
+  
+  // Data for DataTable uses the 'users' array directly.
+  // The user object in this list has 'id', 'firstName', 'lastName', etc.
+  const tableData = users; 
 
   return (
     <DataTable
       title="User Management"
       columns={columns}
-      data={users}
+      data={tableData} 
       loading={usersLoading}
       error={usersError}
       onRetry={refreshUsers}
@@ -90,7 +99,18 @@ const Users = () => {
         </div>
       )}
       renderRow={(user) => (
-        <tr key={user.id}>
+        <tr 
+          key={user.id} 
+          onDoubleClick={() => {
+            if (currentFlow === 'CP') {
+              navigate(`/users/${user.id}?flow=CP`, { 
+                state: { 
+                } 
+              });
+            }
+          }}
+          style={{ cursor: currentFlow === 'CP' ? 'pointer' : 'default' }}
+        >
           <td>{user.id}</td>
           <td><TruncatedText text={`${user.firstName} ${user.lastName}` }/></td>
           <td><TruncatedText text={user.email} /></td>
@@ -108,7 +128,7 @@ const Users = () => {
           </td>
           <td><TruncatedText text={user.location?.city || '-'} /></td>
           <td>
-            <Badge bg={user.status === 'ACTIVE' ? 'success' : 'secondary'}>
+            <Badge pill bg={user.status === 'ACTIVE' ? 'success' : 'secondary'}>
               {user.status}
             </Badge>
           </td>
