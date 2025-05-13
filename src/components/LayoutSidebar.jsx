@@ -1,6 +1,6 @@
 // LayoutSidebar.jsx
-import { useState, useEffect } from "react";
-import { Col, Container, Row, Nav, Stack, Button } from "react-bootstrap";
+import { useState, useEffect, useContext } from "react";
+import { Col, Container, Row, Nav, Stack, Button, Form } from "react-bootstrap";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { 
   PeopleFill, 
@@ -13,6 +13,8 @@ import {
   X
 } from "react-bootstrap-icons";
 import { ToastContainer } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
+import AppContext from '../context/AppContext';
 import './styles/LayoutSidebar.css';
 
 const LayoutSidebar = () => {
@@ -20,33 +22,78 @@ const LayoutSidebar = () => {
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
 
+  const { 
+    appSettings, 
+    updateAppSettings, 
+    showSuccessToast: contextShowSuccessToast 
+  } = useContext(AppContext);
+
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
+
+  useEffect(() => {
+    setStagedSettings({ ...appSettings });
+  }, [appSettings]);
+
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      // Auto-show sidebar on larger screens
       if (!mobile) {
         setSidebarOpen(true);
       } else {
         setSidebarOpen(false);
+        if (showSettingsPanel) {
+            setShowSettingsPanel(false);
+        }
       }
     };
-
-    handleResize(); // Set initial state
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [showSettingsPanel]);
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Close sidebar when route changes on mobile
   useEffect(() => {
     if (isMobile) {
       setSidebarOpen(false);
     }
   }, [location, isMobile]);
+
+  const handleOpenSettingsPanel = () => {
+    setStagedSettings({ ...appSettings }); 
+    setShowSettingsPanel(true);
+    if (isMobile && !sidebarOpen) {
+        setSidebarOpen(true); 
+    }
+  };
+
+  const handleCloseSettingsPanel = () => {
+    setShowSettingsPanel(false);
+  };
+
+  const handleSaveSettings = () => {
+    updateAppSettings(stagedSettings); 
+    setShowSettingsPanel(false);
+    contextShowSuccessToast('Settings saved successfully!');
+  };
+
+  const handleSettingChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setStagedSettings(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleOverlayClick = () => {
+    if (isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  };
 
   return (
     <Container fluid className="px-0">
@@ -66,76 +113,149 @@ const LayoutSidebar = () => {
               </Stack>
               {isMobile && (
                 <Button 
-  variant="link" 
-  className="position-absolute end-0 top-50 translate-middle-y text-white p-2" // Increased padding
-  onClick={toggleSidebar}
-  aria-label="Close sidebar"
->
-  <X size={28} /> {/* Larger size */}
-</Button>
+                  variant="link" 
+                  className="position-absolute end-0 top-50 translate-middle-y text-white p-2"
+                  onClick={toggleSidebar}
+                  aria-label="Close sidebar"
+                >
+                  <X size={28} />
+                </Button>
               )}
             </div>
 
-            {/* Navigation */}
-            <Nav className="flex-column p-3 flex-grow-1">
-              <NavLink 
-                to="/users" 
-                className={({ isActive }) => 
-                  `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
-                  ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
-              >
-                <Stack direction="horizontal" gap={3}>
-                  <PeopleFill className="fs-5" />
-                  <span>Users</span>
-                </Stack>
-                <ChevronRight size={14} />
-              </NavLink>
+            {/* Scrollable area for Navigation and Settings Panel */}
+            <div className="flex-grow-1 overflow-auto sidebar-nav-wrapper">
+              <Nav className="flex-column p-3">
+                <NavLink 
+                  to="/users" 
+                  className={({ isActive }) => 
+                    `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
+                    ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
+                >
+                  <Stack direction="horizontal" gap={3}>
+                    <PeopleFill className="fs-5" />
+                    <span>Users</span>
+                  </Stack>
+                  <ChevronRight size={14} />
+                </NavLink>
 
-              <NavLink 
-                to="/bundles" 
-                className={({ isActive }) => 
-                  `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
-                  ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
-              >
-                <Stack direction="horizontal" gap={3}>
-                  <BoxSeam className="fs-5" />
-                  <span>Bundles</span>
-                </Stack>
-                <ChevronRight size={14} />
-              </NavLink>
+                <NavLink 
+                  to="/bundles" 
+                  className={({ isActive }) => 
+                    `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
+                    ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
+                >
+                  <Stack direction="horizontal" gap={3}>
+                    <BoxSeam className="fs-5" />
+                    <span>Bundles</span>
+                  </Stack>
+                  <ChevronRight size={14} />
+                </NavLink>
 
-              <NavLink 
-                to="/payments" 
-                className={({ isActive }) => 
-                  `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
-                  ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
-              >
-                <Stack direction="horizontal" gap={3}>
-                  <CashStack className="fs-5" />
-                  <span>Payments</span>
-                </Stack>
-                <ChevronRight size={14} />
-              </NavLink>
-            </Nav>
+                <NavLink 
+                  to="/payments" 
+                  className={({ isActive }) => 
+                    `nav-link text-white mb-2 d-flex justify-content-between align-items-center rounded-1 p-3 
+                    ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
+                >
+                  <Stack direction="horizontal" gap={3}>
+                    <CashStack className="fs-5" />
+                    <span>Payments</span>
+                  </Stack>
+                  <ChevronRight size={14} />
+                </NavLink>
+              </Nav>
 
-            {/* Sidebar Footer */}
-            <div className="p-3 bg-black bg-opacity-50 border-top border-secondary">
-              <NavLink 
-                to="/settings" 
-                className={({ isActive }) => 
-                  `nav-link text-white d-flex align-items-center gap-3 rounded-1 p-3 
-                  ${isActive ? 'active-nav-item bg-primary bg-opacity-90' : 'inactive-nav-item bg-dark bg-opacity-25'}`}
-              >
-                <GearFill className="fs-5" />
-                <span>Settings</span>
-              </NavLink>
-            </div>
-          </div>
+              {/* Settings Panel - Animated */}
+              <div className={`settings-panel-wrapper ${showSettingsPanel ? 'open' : ''}`}>
+                <hr className="border-secondary mx-3 my-2" />
+                <div className="settings-panel px-3 pb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h6 className="mb-0 text-white fw-bold">Panel Settings</h6>
+                    <Button 
+                      variant="link" 
+                      className="text-white p-1" 
+                      onClick={handleCloseSettingsPanel}
+                      aria-label="Close settings panel"
+                    >
+                      <X size={24} />
+                    </Button>
+                  </div>
+                  
+                  <Form className="settings-form">
+                    <Form.Group className="mb-2" controlId="autoCreateMonthly">
+                      <Form.Check
+                        type="switch"
+                        name="autoCreateMonthly"
+                        label="Auto Create Payments monthly"
+                        checked={stagedSettings.autoCreateMonthly}
+                        onChange={handleSettingChange}
+                        className="text-white"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-2" controlId="autoCreateOnUserCreation">
+                      <Form.Check
+                        type="switch"
+                        name="autoCreateOnUserCreation"
+                        label="Auto create payments on user creation"
+                        checked={stagedSettings.autoCreateOnUserCreation}
+                        onChange={handleSettingChange}
+                        className="text-white"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3" controlId="autoDeletePaymentTime">
+                      <Form.Label className="text-white small mb-1">Auto delete payments after</Form.Label>
+                      <Form.Select
+                        name="autoDeletePaymentTime"
+                        aria-label="Auto delete payments after"
+                        value={stagedSettings.autoDeletePaymentTime}
+                        onChange={handleSettingChange}
+                        size="sm"
+                      >
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="never">Never</option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Form>
+                  
+                  <div className="d-flex justify-content-end mt-3">
+                    <Button variant="primary" size="sm" onClick={handleSaveSettings}>
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div> 
+            
+            {/* Sidebar Footer - Settings Trigger */}
+            {!showSettingsPanel && (
+              <div className="p-3 bg-black bg-opacity-50 border-top border-secondary settings-trigger-footer">
+                <div
+                  className={`nav-link text-white d-flex align-items-center gap-3 rounded-1 p-3 inactive-nav-item bg-dark bg-opacity-25 cursor-pointer`}
+                  onClick={handleOpenSettingsPanel}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenSettingsPanel()}
+                  aria-expanded={showSettingsPanel}
+                  aria-controls="settings-panel-content" 
+                >
+                  <GearFill className="fs-5" />
+                  <span>Settings</span>
+                </div>
+              </div>
+            )}
+          </div> 
         </Col>
 
         {/* Main Content Column */}
-        <Col className="p-4 bg-light-subtle">
-          {/* Mobile header with toggle button */}
+        <Col 
+          className={`p-4 bg-light-subtle main-content-column ${isMobile && sidebarOpen ? 'sidebar-open-overlay' : ''}`}
+          onClick={isMobile && sidebarOpen ? handleOverlayClick : undefined}
+        >
           {isMobile && (
             <div className="d-flex justify-content-between align-items-center mb-3">
               <Button 
@@ -149,11 +269,11 @@ const LayoutSidebar = () => {
               <h4 className="m-0 text-capitalize">
                 {location.pathname.split('/')[1] || 'Dashboard'}
               </h4>
-              <div style={{ width: '40px' }}></div> {/* Spacer for alignment */}
+              <div style={{ width: '40px' }}></div> 
             </div>
           )}
           
-          <div className="bg-white rounded-2 shadow-sm p-4 h-100">
+          <div className="bg-white rounded-2 shadow-sm p-4 h-100"> 
             <Outlet />
           </div>
         </Col>
