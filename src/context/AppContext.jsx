@@ -17,7 +17,6 @@ export const AppProvider = ({ children }) => {
   const [bundlesLoading, setBundlesLoading] = useState(true);
   const [bundlesError, setBundlesError] = useState(null);
 
-  // START: App Settings State and Logic
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const savedSettings = localStorage.getItem('appDashboardSettings');
@@ -40,11 +39,11 @@ export const AppProvider = ({ children }) => {
     setAppSettings(newSettings);
     try {
       localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
-    } catch (error) {
+    } catch (error)
+    {
       console.error("Failed to save settings to localStorage", error);
     }
   };
-  // END: App Settings State and Logic
 
 
   useEffect(() => {
@@ -52,19 +51,19 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const showSuccessToast = (message) => {
-    toast.success(message, { toastId: `success-${message}` }); // Reverted
+    toast.success(message, { toastId: `success-${message || Date.now()}` });
   };
 
   const showErrorToast = (message) => {
-    toast.error(message, { toastId: `error-${message}`, autoClose: 5000 }); // Reverted
+    toast.error(message, { toastId: `error-${message || Date.now()}`, autoClose: 5000 });
   };
 
   const showWarningToast = (message) => {
-    toast.warn(message, { toastId: `warn-${message}`, autoClose: 4000 }); // Reverted
+    toast.warn(message, { toastId: `warn-${message || Date.now()}`, autoClose: 4000 });
   };
 
   const showInfoToast = (message) => {
-    toast.info(message, { toastId: `info-${message}`, autoClose: 2500 }); // Reverted
+    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 2500 });
   };
 
   useEffect(() => {
@@ -187,14 +186,14 @@ export const AppProvider = ({ children }) => {
   const createBundle = async (bundleData) => {
     try {
       const response = await axios.post("http://localhost:8080/api/bundles", bundleData);
-      await refreshBundles({ showToast: false }); 
+      await refreshBundles({ showToast: false });
       showSuccessToast('Bundle created successfully');
-      return response.data; 
+      return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to create bundle';
       showErrorToast(errorMessage);
       console.error('Create Bundle API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+      throw error.response?.data || error;
     }
   };
   
@@ -294,28 +293,42 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const deletePayment = async (paymentId) => {
+    try {
+      await axios.delete(`http://localhost:8080/api/payments/${paymentId}`);
+      await refreshPayments({ showToast: false }); // Refresh first
+      showSuccessToast('Payment deleted successfully'); // Then show toast
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete payment';
+      showErrorToast(errorMessage);
+      console.error('Delete Payment API Error:', error.response?.data || error);
+      throw error.response?.data || error;
+    }
+  };
+
   return (
     <AppContext.Provider value={{
-      users, 
-      usersLoading, 
-      usersError, 
+      users,
+      usersLoading,
+      usersError,
       refreshUsers,
       createUser,
       updateUser,
       fetchUserById,
       
-      payments, 
-      paymentsLoading, 
-      paymentsError, 
+      payments,
+      paymentsLoading,
+      paymentsError,
       refreshPayments,
       updatePaymentStatus,
       updatePayment,
       createPayment,
+      deletePayment,
       
-      bundles, 
-      bundlesLoading, 
-      bundlesError, 
-      refreshBundles, 
+      bundles,
+      bundlesLoading,
+      bundlesError,
+      refreshBundles,
       createBundle,
       updateBundle,
       
@@ -332,4 +345,4 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-export default AppContext;  
+export default AppContext;
