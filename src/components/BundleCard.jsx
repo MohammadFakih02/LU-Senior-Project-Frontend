@@ -1,6 +1,7 @@
 import { Card, Badge, Button } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { Trash } from 'react-bootstrap-icons';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 const BundleCard = ({
   bundle,
@@ -8,8 +9,14 @@ const BundleCard = ({
   onClick,
   isClicked,
   showActions = true,
-  onDelete // Added onDelete prop
+  onDelete,
+  expandableDescription = false,
+  descriptionMaxLines = 3,
 }) => {
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [isContentLongEnoughToTruncate, setIsContentLongEnoughToTruncate] = useState(false);
+  const descriptionRef = useRef(null);
+
   const sizeStyles = {
     large: {
       headerClass: 'py-2 bg-dark text-white',
@@ -26,6 +33,64 @@ const BundleCard = ({
   };
 
   const { headerClass, titleClass, bodyClass, textClass } = sizeStyles[variant];
+
+  const checkForOverflow = useCallback(() => {
+    if (descriptionRef.current) {
+      const hasOverflow = descriptionRef.current.scrollHeight > descriptionRef.current.clientHeight;
+      if (hasOverflow !== isContentLongEnoughToTruncate) {
+        setIsContentLongEnoughToTruncate(hasOverflow);
+      }
+    }
+  }, [isContentLongEnoughToTruncate]);
+
+  useEffect(() => {
+    if (expandableDescription) {
+      if (!isDescriptionExpanded) {
+        const timerId = setTimeout(checkForOverflow, 50);
+        return () => clearTimeout(timerId);
+      }
+    } else {
+      if (isContentLongEnoughToTruncate) {
+          setIsContentLongEnoughToTruncate(false);
+      }
+    }
+  }, [
+    bundle.description,
+    expandableDescription,
+    descriptionMaxLines,
+    variant,
+    isDescriptionExpanded,
+    checkForOverflow,
+    isContentLongEnoughToTruncate
+  ]);
+
+
+  const toggleDescription = (e) => {
+    e.stopPropagation();
+    setIsDescriptionExpanded(prev => !prev);
+  };
+
+  const descriptionComputedStyles = {
+    ...(expandableDescription && !isDescriptionExpanded && {
+      display: '-webkit-box',
+      WebkitLineClamp: descriptionMaxLines,
+      WebkitBoxOrient: 'vertical',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    }),
+    ...(expandableDescription && isDescriptionExpanded && {
+        WebkitLineClamp: 'unset',
+        display: 'block',
+    }),
+  };
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete();
+    }
+  };
+
 
   return (
     <Card
@@ -46,11 +111,26 @@ const BundleCard = ({
       </Card.Header>
 
       <Card.Body className={bodyClass}>
-        <Card.Text className={`text-muted ${textClass}`}>
+        <Card.Text
+          ref={descriptionRef}
+          className={`text-muted ${textClass}`}
+          style={descriptionComputedStyles}
+        >
           {bundle.description}
         </Card.Text>
+        {expandableDescription && isContentLongEnoughToTruncate && (
+          <Button
+            variant="link"
+            size="sm"
+            onClick={toggleDescription}
+            className="p-0 mt-1 text-decoration-none"
+            aria-expanded={isDescriptionExpanded}
+          >
+            {isDescriptionExpanded ? 'Read less' : 'Read more'}
+          </Button>
+        )}
 
-        <div className={textClass}>
+        <div className={textClass} style={{ marginTop: (expandableDescription && isContentLongEnoughToTruncate) ? '0.5rem' : '0' }}>
           <div className="d-flex justify-content-between">
             <span>Price:</span>
             <strong>${bundle.price}/mo</strong>
@@ -68,19 +148,19 @@ const BundleCard = ({
 
       {showActions && variant === 'large' && (
         <Card.Footer className="d-flex justify-content-end gap-2">
-          {/* <Button variant="info" size="sm">View</Button> */}
           <Button
             variant="warning"
             size="sm"
             as={Link}
             to={`/bundles/edit/${bundle.id || bundle.bundleId}`}
+            onClick={(e) => e.stopPropagation()}
           >
             Edit
           </Button>
           <Button
             variant="danger"
             size="sm"
-            onClick={onDelete} // Call onDelete prop when clicked
+            onClick={handleDeleteClick}
           >
             <Trash size={16} /> Delete
           </Button>

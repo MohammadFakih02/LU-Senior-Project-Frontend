@@ -76,6 +76,8 @@ const Bundles = () => {
               variant="large"
               showActions={true}
               onDelete={() => handleDeleteClick(bundle)}
+              expandableDescription={true}
+              descriptionMaxLines={3}
             />
           </Col>
         ))}
