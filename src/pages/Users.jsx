@@ -69,7 +69,7 @@ const Users = () => {
     <div className="p-3"> {/* Added a wrapper div for consistent padding and Alert placement */}
       {currentFlow === 'CP' && (
         <Alert variant="info" className="mb-3">
-          You are in <strong>Create Payment mode</strong>. Double-click a user in the table below to view their details and select a bundle subscription for payment.
+          You are in <strong>Create Payment mode</strong>. Double-click a user in the table below or use the "Select" button to view their details and select a bundle subscription for payment.
         </Alert>
       )}
       <DataTable
@@ -140,7 +140,22 @@ const Users = () => {
             </td>
             <td>
               <div className="d-flex gap-2">
-                <Button variant="info" size="sm" as={Link} to={`/users/${user.id}${currentFlow === 'CP' ? '?flow=CP' : ''}`}>
+                {currentFlow === 'CP' && (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    as={Link}
+                    to={`/users/${user.id}?flow=CP`}
+                  >
+                    Select
+                  </Button>
+                )}
+                <Button
+                  variant="info"
+                  size="sm"
+                  as={Link}
+                  to={`/users/${user.id}${currentFlow === 'CP' ? '?flow=CP' : ''}`}
+                >
                   View
                 </Button>
                 <Button variant="warning" size="sm" as={Link} to={`/users/edit/${user.id}`}>

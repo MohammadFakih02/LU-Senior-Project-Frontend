@@ -92,7 +92,7 @@ const Payments = () => {
       setShowCreatePaymentModal(false);
       setNewPaymentSelection(null);
       await refreshPayments();
-    } catch (error) {
+    } catch (error)      {
       console.error("Failed to create payment from Payments.jsx:", error);
     } finally {
       setIsCreatingPayment(false);
@@ -120,23 +120,42 @@ const Payments = () => {
 
   const handleRowClick = useCallback((event, paymentId) => {
     event.stopPropagation();
-    setActiveRowId(currentActiveId => currentActiveId === paymentId ? null : paymentId);
-    
+    const { clientX, clientY } = event;
+
     const payment = payments.find(p => p.paymentId === paymentId);
     if (!payment) return;
 
-    const row = event.currentTarget;
-    const lastCell = row.lastElementChild;
-
     setPopoverState(prevState => {
       const isAlreadyShownForThisPayment = prevState.show && prevState.payment?.paymentId === paymentId;
-      return {
-        show: !isAlreadyShownForThisPayment,
-        target: lastCell,
-        payment: isAlreadyShownForThisPayment ? null : payment,
-      };
+      
+      if (isAlreadyShownForThisPayment) {
+        setActiveRowId(null);
+        return { show: false, target: null, payment: null };
+      } else {
+        setActiveRowId(paymentId);
+        return {
+          show: true,
+          target: { 
+            getBoundingClientRect: () => ({
+              width: 0,
+              height: 0,
+              top: clientY,
+              right: clientX,
+              bottom: clientY,
+              left: clientX,
+            }),
+          },
+          payment: payment,
+        };
+      }
     });
   }, [payments]);
+
+  const closePopover = useCallback(() => {
+    setPopoverState({ show: false, target: null, payment: null });
+    setActiveRowId(null);
+  }, []);
+
 
   const uniquePaymentMethods = [...new Set(payments.map(p => p.paymentMethod).filter(Boolean))];
 
@@ -202,18 +221,22 @@ const Payments = () => {
           </tr>
         )}
         containerStyle={{
-          maxHeight: 'calc(100vh - 250px)', border: '1px solid #dee2e6', borderRadius: '0.375rem', overflow: 'auto', boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)',
+          maxHeight: 'calc(100vh - 250px)', // Kept for specific vertical scroll needs
+          // border: '1px solid #dee2e6', // Removed for similarity with Users table
+          // borderRadius: '0.375rem', // Removed
+          // overflow: 'auto', // DataTable internal div handles horizontal, maxHeight handles vertical
+          // boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)', // Removed
         }}
-        tableClassName="table-hover"
-        headerClassName="bg-light"
+        // tableClassName="table-hover" // Removed, DataTable handles hover
+        // headerClassName="bg-light" // Removed, DataTable uses table-dark
       />
 
       {popoverState.payment && (
         <Overlay
             show={popoverState.show}
             target={popoverState.target}
-            placement="top-start"
-            onHide={() => setPopoverState(prev => ({ ...prev, show: false }))}
+            placement="bottom-start"
+            onHide={closePopover}
             rootClose
         >
             <Popover id={`popover-payment-actions-${popoverState.payment.paymentId}`} style={{zIndex: 1050}}>
@@ -228,7 +251,7 @@ const Payments = () => {
                             className="d-flex align-items-center justify-content-start text-nowrap w-100"
                             onClick={() => {
                                 handleOpenUpdateModal(popoverState.payment);
-                                setPopoverState({ show: false, target: null, payment: null });
+                                closePopover();
                             }}
                             disabled={popoverState.payment.status === 'PAID'}
                         >
@@ -240,7 +263,7 @@ const Payments = () => {
                             className="d-flex align-items-center justify-content-start text-nowrap w-100"
                             onClick={() => {
                                 handleOpenDeleteModal(popoverState.payment);
-                                setPopoverState({ show: false, target: null, payment: null });
+                                closePopover();
                             }}
                         >
                             <Trash3 className="me-2 flex-shrink-0" /> Delete Payment
