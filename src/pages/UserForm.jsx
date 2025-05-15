@@ -156,14 +156,17 @@ const UserForm = () => {
             </Row>
 
             <hr className="my-4" />
+            {(!bundles || bundles.length === 0) && (
+              <Alert variant="info" className="mb-3">
+                No Bundles have been found.
+              </Alert>
+            )}
 
             <BundleSubscriptionsSection
               bundles={bundles}
               selectedBundles={selectedBundles}
               clickedBundle={clickedBundle}
               activeAccordionKey={activeAccordionKey}
-              // validationErrors is used by renderBundleLocationFields
-              // handleBundleLocationChange is used by renderBundleLocationFields
               handleAddBundle={handleAddBundle}
               confirmRemoveBundle={confirmRemoveBundle}
               handleBundleStatusChange={handleBundleStatusChange}

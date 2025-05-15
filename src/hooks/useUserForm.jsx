@@ -239,19 +239,15 @@ const useUserForm = ({
    }, [showWarningToast]);
 
   const handlePrimaryLocationMapPick = useCallback(() => {
-    const primaryLocationData = getValues([
-      'address',
-      'city',
-      'street',
-      'building',
-      'floor',
-      'googleMapsUrl'
-    ]).reduce((acc, val, index) => {
-        const fields = ['address', 'city', 'street', 'building', 'floor', 'googleMapsUrl'];
-        acc[fields[index]] = val;
-        return acc;
-    }, {});
-
+    const {
+        address,
+        city,
+        street,
+        building,
+        floor,
+        googleMapsUrl
+    } = getValues(); // Get all form values as an object
+    const primaryLocationData = { address, city, street, building, floor, googleMapsUrl };
     openGoogleMaps(primaryLocationData, primaryLocationData.googleMapsUrl);
   }, [getValues, openGoogleMaps]);
 
@@ -356,6 +352,44 @@ const useUserForm = ({
     }
   }, []);
 
+  const handleSetBundleLocationToPrimary = useCallback((bundleTempId) => {
+    const {
+      address: primaryAddress,
+      city: primaryCity,
+      street: primaryStreet,
+      building: primaryBuilding,
+      floor: primaryFloor,
+      googleMapsUrl: primaryGoogleMapsUrl,
+    } = getValues(); // Gets all registered form values
+
+    setSelectedBundles(prevBundles =>
+      prevBundles.map(b => {
+        if (b.tempId === bundleTempId) {
+          return {
+            ...b,
+            address: primaryAddress || "",
+            city: primaryCity || "",
+            street: primaryStreet || "",
+            building: primaryBuilding || "",
+            floor: primaryFloor || "",
+            googleMapsUrl: primaryGoogleMapsUrl || "",
+          };
+        }
+        return b;
+      })
+    );
+
+    // Clear validation errors for this bundle's address and city if they now have values
+    setValidationErrors(prevErrors => {
+      const newErrors = { ...prevErrors };
+      if (primaryAddress) delete newErrors[`address-${bundleTempId}`];
+      if (primaryCity) delete newErrors[`city-${bundleTempId}`];
+      return newErrors;
+    });
+
+    showInfoToast("Bundle location set to user's primary location.");
+  }, [getValues, setSelectedBundles, setValidationErrors, showInfoToast]);
+
 
   const renderBundleLocationFields = useCallback((bundle) => (
     <Row className="g-3">
@@ -429,14 +463,21 @@ const useUserForm = ({
         </Form.Group>
       </Col>
 
-      <Col md={12} className="d-flex justify-content-end">
+      <Col md={12} className="d-flex justify-content-between align-items-center mt-2">
+        <Button
+            variant="outline-info"
+            size="sm"
+            onClick={() => handleSetBundleLocationToPrimary(bundle.tempId)}
+        >
+            Use User's Primary Location
+        </Button>
         <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
           Pick on Map / View Map
         </Button>
       </Col>
 
     </Row>
-  ), [handleBundleLocationChange, handleBundleLocationMapPick, validationErrors]);
+  ), [handleBundleLocationChange, handleBundleLocationMapPick, validationErrors, handleSetBundleLocationToPrimary]);
 
 
   return {
