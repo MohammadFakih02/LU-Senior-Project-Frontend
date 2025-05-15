@@ -14,16 +14,51 @@ const Bundles = () => {
     bundlesError,
     refreshBundles,
     showSuccessToast,
-    showErrorToast
+    showErrorToast,
+    users, // Added users
+    payments, // Added payments
   } = useContext(AppContext);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [bundleToDelete, setBundleToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteWarningMessages, setDeleteWarningMessages] = useState([]);
 
   const handleDeleteClick = (bundle) => {
+    const warnings = [];
+    // Check for active user bundles
+    const activeUsersWithBundle = users.filter(user =>
+      user.bundleNames && user.bundleNames.includes(bundle.name)
+    );
+    if (activeUsersWithBundle.length > 0) {
+      warnings.push(
+        `This bundle is currently active for ${activeUsersWithBundle.length} user(s). Deleting it might affect their subscriptions.`
+      );
+    }
+
+    // Check for unpaid/pending payments for this bundle
+    const relevantPayments = payments.filter(
+      (payment) => payment.bundleId === bundle.bundleId && payment.status !== 'PAID'
+    );
+    if (relevantPayments.length > 0) {
+      const unpaidCount = relevantPayments.filter(p => p.status === 'UNPAID').length;
+      const pendingCount = relevantPayments.filter(p => p.status === 'PENDING').length;
+      let paymentWarning = 'There are payments associated with this bundle:';
+      if (unpaidCount > 0) paymentWarning += ` ${unpaidCount} UNPAID`;
+      if (pendingCount > 0) paymentWarning += `${unpaidCount > 0 ? ' and' : ''} ${pendingCount} PENDING`;
+      paymentWarning += '.';
+      warnings.push(paymentWarning);
+    }
+
+    setDeleteWarningMessages(warnings);
     setBundleToDelete(bundle);
     setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setBundleToDelete(null);
+    setDeleteWarningMessages([]); // Clear warnings on close
   };
 
   const handleConfirmDelete = async () => {
@@ -38,8 +73,7 @@ const Bundles = () => {
       showErrorToast(error.response?.data?.message || `Failed to delete bundle "${bundleToDelete.name}"`);
     } finally {
       setIsDeleting(false);
-      setShowDeleteModal(false);
-      setBundleToDelete(null);
+      handleCloseDeleteModal(); // Use the new close handler
     }
   };
 
@@ -103,15 +137,25 @@ const Bundles = () => {
         </div>
       )}
 
-      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
         <Modal.Header closeButton>
           <Modal.Title>Confirm Deletion</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to delete the bundle "{bundleToDelete?.name}"? This action cannot be undone.
+          <p>Are you sure you want to delete the bundle "{bundleToDelete?.name}"? This action cannot be undone.</p>
+          {deleteWarningMessages.length > 0 && (
+            <Alert variant="warning" className="mt-3">
+              <strong>Warning:</strong>
+              <ul>
+                {deleteWarningMessages.map((msg, index) => (
+                  <li key={index}>{msg}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowDeleteModal(false)}>
+          <Button variant="secondary" onClick={handleCloseDeleteModal}>
             Cancel
           </Button>
           <Button
