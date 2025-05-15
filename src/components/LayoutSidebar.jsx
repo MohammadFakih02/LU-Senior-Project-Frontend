@@ -188,7 +188,7 @@ const LayoutSidebar = () => {
                         type="switch"
                         name="autoCreateMonthly"
                         label="Auto Create Payments monthly"
-                        checked={stagedSettings.autoCreateMonthly}
+                        checked={stagedSettings.autoCreateMonthly || false}
                         onChange={handleSettingChange}
                         className="text-white"
                       />
@@ -199,7 +199,18 @@ const LayoutSidebar = () => {
                         type="switch"
                         name="autoCreateOnUserCreation"
                         label="Auto create payments on user creation"
-                        checked={stagedSettings.autoCreateOnUserCreation}
+                        checked={stagedSettings.autoCreateOnUserCreation || false}
+                        onChange={handleSettingChange}
+                        className="text-white"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment"> {/* New Setting */}
+                      <Form.Check
+                        type="switch"
+                        name="autoDisableBundleOnNoPayment"
+                        label="Auto disable bundle if no payment"
+                        checked={stagedSettings.autoDisableBundleOnNoPayment || false}
                         onChange={handleSettingChange}
                         className="text-white"
                       />
@@ -210,7 +221,7 @@ const LayoutSidebar = () => {
                       <Form.Select
                         name="autoDeletePaymentTime"
                         aria-label="Auto delete payments after"
-                        value={stagedSettings.autoDeletePaymentTime}
+                        value={stagedSettings.autoDeletePaymentTime || 'never'}
                         onChange={handleSettingChange}
                         size="sm"
                       >

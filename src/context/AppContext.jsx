@@ -20,17 +20,20 @@ export const AppProvider = ({ children }) => {
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const savedSettings = localStorage.getItem('appDashboardSettings');
-      return savedSettings ? JSON.parse(savedSettings) : {
+      const defaultSettings = {
         autoCreateMonthly: false,
         autoCreateOnUserCreation: false,
         autoDeletePaymentTime: 'never',
+        autoDisableBundleOnNoPayment: false, // New setting
       };
+      return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
     } catch (error) {
       console.error("Failed to parse settings from localStorage", error);
       return {
         autoCreateMonthly: false,
         autoCreateOnUserCreation: false,
         autoDeletePaymentTime: 'never',
+        autoDisableBundleOnNoPayment: false, // New setting
       };
     }
   });
