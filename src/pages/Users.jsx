@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tooltip } from 'react-tippy';
 import 'react-tippy/dist/tippy.css';
-import { Badge, Button, Alert } from 'react-bootstrap'; // Added Alert
+import { Badge, Button, Alert } from 'react-bootstrap';
 import { useTable } from '../hooks/useTable';
 import { DataTable } from '../components/tables/DataTable';
 import AppContext from '../context/AppContext';
@@ -51,7 +51,7 @@ const Users = () => {
   ];
 
   const columns = [
-    { key: 'id', label: 'ID', sortable: true }, // The user list from /api/users has "id"
+    { key: 'id', label: 'ID', sortable: true },
     { key: 'name', label: 'Name', sortable: true },
     { key: 'email', label: 'Email', sortable: true },
     { key: 'phone', label: 'Phone', sortable: true },
@@ -61,12 +61,10 @@ const Users = () => {
     { key: 'actions', label: 'Actions' }
   ];
 
-  // Data for DataTable uses the 'users' array directly.
-  // The user object in this list has 'id', 'firstName', 'lastName', etc.
   const tableData = users;
 
   return (
-    <div className="p-3"> {/* Added a wrapper div for consistent padding and Alert placement */}
+    <> {/* Removed wrapper div with p-3, LayoutSidebar's card provides padding */}
       {currentFlow === 'CP' && (
         <Alert variant="info" className="mb-3">
           You are in <strong>Create Payment mode</strong>. Double-click a user in the table below or use the "Select" button to view their details and select a bundle subscription for payment.
@@ -165,9 +163,8 @@ const Users = () => {
             </td>
           </tr>
         )}
-        containerStyle={{ overflowX: 'auto' }}
       />
-    </div>
+    </>
   );
 };
 

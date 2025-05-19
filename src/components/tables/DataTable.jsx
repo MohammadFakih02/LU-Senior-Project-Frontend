@@ -16,7 +16,7 @@ export const DataTable = ({
   searchPlaceholder = "Search...",
   title,
   renderHeader,
-  containerStyle
+  containerStyle // Style for the main container div of DataTable
 }) => {
   const { 
     searchTerm,
@@ -40,22 +40,18 @@ export const DataTable = ({
     setOpenDropdown(prev => prev === dropdownKey ? null : dropdownKey);
   };
 
-  // Handle search and pagination
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
     setCurrentPage(1);
   };
 
-  // Filtering logic
   const filteredData = data.filter(item => {
-    // Search term filter
     const matchesSearch = !searchTerm || 
       Object.values(item).some(
         value => value && 
         value.toString().toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-    // Apply each active filter
     const matchesFilters = Object.entries(filters).every(([filterType, filterValues]) => {
       if (filterValues.length === 0) return true;
       
@@ -79,7 +75,6 @@ export const DataTable = ({
     return matchesSearch && matchesFilters;
   });
 
-  // Sorting logic
   const sortedData = [...filteredData].sort((a, b) => {
     if (!sortKey) return 0;
     
@@ -95,22 +90,20 @@ export const DataTable = ({
       : String(bValue).localeCompare(String(aValue));
   });
 
-  // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = sortedData.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(sortedData.length / itemsPerPage);
 
-  // Loading state
   if (loading) return (
-    <div className="d-flex justify-content-center align-items-center" style={{ height: "300px" }}>
+    <div className="d-flex justify-content-center align-items-center" style={{ height: "300px", ...containerStyle }}>
       <Spinner animation="border" variant="primary" />
     </div>
   );
 
-  // Error state
   if (error) return (
-    <div className="p-3">
+    // Same logic for error message container
+    <div className="p-3" style={containerStyle}> 
       <Alert variant="danger">{error}</Alert>
       <Button variant="secondary" onClick={onRetry}>
         Retry
@@ -119,8 +112,7 @@ export const DataTable = ({
   );
 
   return (
-    <div className="p-3" style={containerStyle}>
-      {/* Header Section */}
+    <div className="p-3" style={containerStyle}> 
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <h1 className="mb-0">{title}</h1>
         <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center gap-3 w-100 w-md-auto">
@@ -135,7 +127,6 @@ export const DataTable = ({
         </div>
       </div>
 
-      {/* Filter Controls */}
       <div className="mb-4">
         <Stack direction="horizontal" gap={3} className="flex-wrap">
           {filterConfig.map(({ type, options, label, variant }) => (
@@ -155,14 +146,13 @@ export const DataTable = ({
             variant="outline-danger"
             onClick={clearFilters}
             disabled={Object.values(filters).every(arr => arr.length === 0) && !searchTerm}
-            className="mt-2 mt-md-0"
+            className="mt-2 mt-md-0" // Ensures button aligns well when filters wrap
           >
             Clear Filters
           </Button>
         </Stack>
       </div>
 
-      {/* Table Section */}
       <div className="table-responsive" style={{ overflowX: 'auto' }}>
         <Table striped bordered hover className="mb-0">
           <thead className="table-dark">
@@ -173,7 +163,7 @@ export const DataTable = ({
                   onClick={() => sortable && handleSort(key)}
                   style={{ 
                     cursor: sortable ? 'pointer' : 'default',
-                    minWidth: '120px',
+                    minWidth: '120px', // Ensures columns don't get too squeezed
                     verticalAlign: 'middle'
                   }}
                 >
@@ -184,24 +174,25 @@ export const DataTable = ({
             </tr>
           </thead>
           <tbody>
-            {currentItems.map(item => renderRow(item))}
+            {currentItems.length > 0 ? (
+              currentItems.map(item => renderRow(item))
+            ) : (
+              <tr>
+                <td colSpan={columns.length} className="text-center p-5 text-muted">
+                  <h5>
+                    {searchTerm || Object.values(filters).some(arr => arr.length > 0) 
+                      ? 'No matching items found' 
+                      : 'No data available'}
+                  </h5>
+                </td>
+              </tr>
+            )}
           </tbody>
         </Table>
       </div>
-
-      {/* Empty State */}
-      {sortedData.length === 0 && (
-        <div className="text-center p-5 text-muted">
-          <h5>
-            {searchTerm || Object.values(filters).some(arr => arr.length > 0) 
-              ? 'No matching items found' 
-              : 'No data available'}
-          </h5>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {sortedData.length > itemsPerPage && (
+      
+      {/* Pagination: Only show if there are items and more than one page */}
+      {sortedData.length > 0 && totalPages > 1 && (
         <div className="d-flex justify-content-center mt-4">
           <Pagination>
             <Pagination.First 

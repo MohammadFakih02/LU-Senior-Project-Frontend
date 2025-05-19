@@ -393,6 +393,16 @@ const useUserForm = ({
 
   const renderBundleLocationFields = useCallback((bundle) => (
     <Row className="g-3">
+      <Col md={12} className="mb-3">
+        <Button
+            variant="outline-info"
+            size="sm"
+            onClick={() => handleSetBundleLocationToPrimary(bundle.tempId)}
+        >
+            Use Primary Location
+        </Button>
+      </Col>
+
       <Col md={12}>
         <Form.Group controlId={`bundleAddress-${bundle.tempId}`}>
           <Form.Label>Address</Form.Label>
@@ -463,14 +473,7 @@ const useUserForm = ({
         </Form.Group>
       </Col>
 
-      <Col md={12} className="d-flex justify-content-between align-items-center mt-2">
-        <Button
-            variant="outline-info"
-            size="sm"
-            onClick={() => handleSetBundleLocationToPrimary(bundle.tempId)}
-        >
-            Use User's Primary Location
-        </Button>
+      <Col md={12} className="d-flex justify-content-end align-items-center mt-2"> {/* Changed to justify-content-end as only one button remains here */}
         <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
           Pick on Map / View Map
         </Button>

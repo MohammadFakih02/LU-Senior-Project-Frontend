@@ -20,22 +20,20 @@ export const MultiSelectDropdown = ({
         overflowY: 'auto',
         minWidth: '250px',
         padding: '0.5rem 1rem',
-        position: 'absolute',
-        inset: '0px auto auto 0px',
-        margin: '0px',
-        transform: 'translate(0px, 40px)',
       }}>
-        {options.map((option, index) => (
+        {options.length > 0 ? options.map((option, index) => (
           <Form.Check
-            key={index}
+            key={`${dropdownKey}-option-${index}`}
             type="checkbox"
-            id={`checkbox-${option}`}
+            id={`checkbox-${dropdownKey}-${option.toString().replace(/\s+/g, '-')}`}
             label={option}
             checked={selected.includes(option)}
             onChange={() => onToggle(option)}
             className="py-1"
           />
-        ))}
+        )) : (
+          <Dropdown.ItemText className="text-muted">No options available</Dropdown.ItemText>
+        )}
       </Dropdown.Menu>
     </Dropdown>
   );

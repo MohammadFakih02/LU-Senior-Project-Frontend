@@ -174,7 +174,7 @@ const Payments = () => {
   }));
 
   return (
-    <div className="p-3 p-md-4">
+    <>
       <DataTable
         title="Payment Management"
         columns={columns}
@@ -221,14 +221,8 @@ const Payments = () => {
           </tr>
         )}
         containerStyle={{
-          maxHeight: 'calc(100vh - 250px)', // Kept for specific vertical scroll needs
-          // border: '1px solid #dee2e6', // Removed for similarity with Users table
-          // borderRadius: '0.375rem', // Removed
-          // overflow: 'auto', // DataTable internal div handles horizontal, maxHeight handles vertical
-          // boxShadow: '0 0.125rem 0.25rem rgba(0, 0, 0, 0.075)', // Removed
+          maxHeight: 'calc(100vh - 250px)', // Kept for specific vertical scroll needs for the entire DataTable block
         }}
-        // tableClassName="table-hover" // Removed, DataTable handles hover
-        // headerClassName="bg-light" // Removed, DataTable uses table-dark
       />
 
       {popoverState.payment && (
@@ -305,7 +299,7 @@ const Payments = () => {
           </Button>
         </Modal.Footer>
       </Modal>
-    </div>
+    </>
   );
 };
 

@@ -10,13 +10,11 @@
 }
 
 .active-nav-item {
-  /* No hover effect for active items */
 }
 
-/* Fix for the gap at the bottom */
 .container-fluid {
   height: 100vh;
-  overflow: hidden; /* Prevents main page scrollbars if content overflows viewport */
+  overflow: hidden; 
 }
 
 .row {
@@ -25,83 +23,69 @@
 }
 
 .col {
-  padding: 0; /* Reset default bootstrap col padding if sidebar is directly a col */
+  padding: 0; 
 }
 
-/* Styles for the main content area beside the sidebar */
-.main-content-column { /* Added this class to target the main content column specifically */
+.main-content-column { 
   overflow-y: auto;
   height: 100%;
-  /* background-color: #f8f9fa; Applied via bg-light-subtle in JSX */
+}
+
+.main-content-card {
+
 }
 
 
-/* Ensure the content area fills the remaining space */
 .min-vh-100 {
   min-height: 100vh;
-  height: 100%; /* Make sidebar take full height */
+  height: 100%;
 }
 
-/* Sidebar styles */
+
 .sidebar-column {
   transition: transform 0.3s ease-in-out;
-  /* min-vh-100 is applied in JSX, ensuring it attempts to take full viewport height */
-  /* Bootstrap Col classes (md={3} lg={2}) will handle desktop width */
 }
 
-/* Mobile styles */
+
 @media (max-width: 767.98px) {
   .sidebar-column {
-    position: fixed !important; /* Ensures it's fixed for sliding effect */
+    position: fixed !important; 
     top: 0;
-    left: 0; /* Start off-screen */
-    z-index: 1050; /* Higher than typical Bootstrap modal backdrop (1040) */
-    width: 250px; /* Fixed width for mobile view */
-    transform: translateX(-100%); /* Initially hidden */
-    /* Ensure sidebar itself can scroll if its content is too tall */
-    /* overflow-y: auto; -- This is handled by sidebar-nav-wrapper now */
+    left: 0; 
+    z-index: 1050; 
+    width: 250px; 
+    transform: translateX(-100%);
   }
   
   .sidebar-column.open {
-    transform: translateX(0); /* Slide in */
+    transform: translateX(0); 
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
   }
   
-  /* Add overlay when sidebar is open on mobile */
-  /* The overlay is created for the main content column when sidebar is open */
   .main-content-column.sidebar-open-overlay::before {
     content: '';
-    position: fixed; /* Cover the viewport */
+    position: fixed; 
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1040; /* Below sidebar, above main content */
-    pointer-events: auto; /* Allows for potential click-to-close */
+    z-index: 1040; 
+    pointer-events: auto; 
   }
-}
 
-/* --- NEW STYLES FOR SETTINGS PANEL --- */
+}
 
 .cursor-pointer {
   cursor: pointer;
 }
 
-/*
-  Wrapper for navigation links and the settings panel.
-  This allows the settings panel to appear below the nav items
-  and for the entire section to scroll if content exceeds sidebar height.
-  Applied via classes `flex-grow-1 overflow-auto sidebar-nav-wrapper` in JSX.
-*/
 .sidebar-nav-wrapper {
   display: flex;
   flex-direction: column;
-  /* `flex-grow-1` makes it take available vertical space */
-  /* `overflow-auto` allows scrolling for its content */
+
 }
 
-/* Wrapper for the settings panel itself for animation */
 .settings-panel-wrapper {
   max-height: 0;
   opacity: 0;
@@ -110,34 +94,31 @@
 }
 
 .settings-panel-wrapper.open {
-  max-height: 450px; /* Adjust if your settings panel needs more space */
+  max-height: 450px;
   opacity: 1;
-  /* overflow is hidden, if settings content itself needs to scroll, add overflow-y: auto to .settings-panel */
 }
 
 .settings-panel {
-  /* Inner padding is applied in JSX (px-3 pb-3) */
 }
 
-/* Styling for form elements within the settings panel */
 .settings-form .form-check-label,
 .settings-form .form-label {
-  color: #dee2e6; /* Lighter text for dark sidebar background */
+  color: #dee2e6;
   font-size: 0.9rem;
   margin-bottom: 0.25rem;
 }
 
 .settings-form .form-check {
-   margin-bottom: 0.75rem; /* Spacing between switches */
+   margin-bottom: 0.75rem;
 }
 
 .settings-form .form-check-input {
-  border-color: #495057; /* Slightly darker border for switch */
+  border-color: #495057;
   background-color: #343a40;
 }
 
 .settings-form .form-check-input:checked {
-  background-color: #0d6efd; /* Bootstrap primary blue */
+  background-color: #0d6efd;
   border-color: #0d6efd;
 }
 .settings-form .form-check-input:focus {
@@ -159,8 +140,6 @@
   box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
 
-/* Ensures the settings trigger footer is always at the bottom of the sidebar */
 .settings-trigger-footer {
-  margin-top: auto; /* Pushes this to the bottom of the flex container (.d-flex.flex-column.h-100) */
-  /* Background and border are applied in JSX */
+  margin-top: auto; 
 }

@@ -38,7 +38,6 @@ const LayoutSidebar = () => {
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
 
-  // Calculate if at least two API calls have failed
   const hasMultipleErrors = [usersError, paymentsError, bundlesError].filter(Boolean).length >= 2;
 
   const handleRefreshAll = async () => {
@@ -283,43 +282,51 @@ const LayoutSidebar = () => {
 
         {/* Main Content Column */}
         <Col 
-          className={`p-4 bg-light-subtle main-content-column ${isMobile && sidebarOpen ? 'sidebar-open-overlay' : ''}`}
+          className={`d-flex flex-column bg-light-subtle main-content-column ${isMobile && sidebarOpen ? 'sidebar-open-overlay' : ''}`}
           onClick={isMobile && sidebarOpen ? handleOverlayClick : undefined}
         >
+          {/* Mobile Header container */}
           {isMobile && (
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <Button 
-                variant="outline-secondary" 
-                onClick={toggleSidebar}
-                className="d-md-none"
-                aria-label="Open sidebar"
-              >
-                <List size={20} />
-              </Button>
-              <h4 className="m-0 text-capitalize">
-                {location.pathname.split('/')[1] || 'Dashboard'}
-              </h4>
-              <div style={{ width: '40px' }}></div> 
+            // This div ensures padding for the mobile header content, separate from the card's margin/padding
+            <div className="px-3 pt-3 px-md-4 pt-md-4"> {/* Using Bootstrap spacing for responsiveness */}
+              <div className="d-flex justify-content-between align-items-center">
+                <Button 
+                  variant="outline-secondary" 
+                  onClick={toggleSidebar}
+                  className="d-md-none"
+                  aria-label="Open sidebar"
+                >
+                  <List size={20} />
+                </Button>
+                <h4 className="m-0 text-capitalize">
+                  {location.pathname.split('/')[1] || 'Dashboard'}
+                </h4>
+                <div style={{ width: '40px' }}></div> 
+              </div>
             </div>
           )}
           
-          {/* Error Alert and Refresh All Button */}
+          {/* Alert container */}
           {hasMultipleErrors && (
-            <Alert variant="danger" className="mb-3">
-              <div className="d-flex justify-content-between align-items-center">
-                <span>Multiple data sources failed to load</span>
-                <Button 
-                  variant="danger" 
-                  onClick={handleRefreshAll}
-                  className="d-flex align-items-center gap-2"
-                >
-                  <ArrowClockwise /> Refresh All
-                </Button>
-              </div>
-            </Alert>
+             // This div ensures padding for the alert, separate from the card's margin/padding
+            <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'}`}>
+              <Alert variant="danger" className="mb-0"> {/* mb-0 if it's directly above the card with margin */}
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>Multiple data sources failed to load</span>
+                  <Button 
+                    variant="danger" 
+                    onClick={handleRefreshAll}
+                    className="d-flex align-items-center gap-2"
+                  >
+                    <ArrowClockwise /> Refresh All
+                  </Button>
+                </div>
+              </Alert>
+            </div>
           )}
           
-          <div className="bg-white rounded-2 shadow-sm p-4 h-100"> 
+          {/* The white content card */}
+          <div className="bg-white rounded-2 shadow-sm p-3 p-md-4 flex-grow-1 m-3 m-md-4 main-content-card"> 
             <Outlet />
           </div>
         </Col>
