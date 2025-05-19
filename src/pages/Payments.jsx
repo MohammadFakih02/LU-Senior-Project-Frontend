@@ -1,12 +1,13 @@
 import { useCallback, useContext, useState, useEffect } from 'react';
-import { Badge, Button, Modal, Stack, Overlay, Popover } from 'react-bootstrap';
+import { Badge, Button, Modal, Stack, Overlay, Popover, Spinner } from 'react-bootstrap'; // Added Spinner
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTable } from '../hooks/useTable';
 import { DataTable } from '../components/tables/DataTable';
 import AppContext from '../context/AppContext';
 import PaymentConfirmationModal from '../components/PaymentConfirmationModal';
 import CreatePaymentModal from '../components/CreatePaymentModal';
-import { ArrowClockwise, PlusCircleFill, PencilSquare, Trash3 } from 'react-bootstrap-icons';
+import { ArrowClockwise, PlusCircleFill, PencilSquare, Trash3, Whatsapp } from 'react-bootstrap-icons';
+import { generateWhatsAppLink } from '../utils/whatsappHelper'; // Corrected import path
 
 const Payments = () => {
   const {
@@ -18,6 +19,7 @@ const Payments = () => {
     createPayment,
     deletePayment,
     showErrorToast,
+    fetchUserById, // Added fetchUserById from context
   } = useContext(AppContext);
 
   const { tableState, tableHandlers } = useTable({ status: [], bundle: [], method: [] });
@@ -39,6 +41,7 @@ const Payments = () => {
     target: null,
     payment: null,
   });
+  const [isFetchingWhatsappUserPopover, setIsFetchingWhatsappUserPopover] = useState(false); // For popover's WhatsApp button
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -46,12 +49,15 @@ const Payments = () => {
   useEffect(() => {
     if (location.state?.flow === 'createPaymentCompleteCP' &&
         location.state?.selectedUserBundleId &&
-        location.state?.selectedBundleName) {
+        location.state?.selectedBundleName &&
+        location.state?.selectedUserId // IMPORTANT: Expecting selectedUserId from navigation state
+        ) {
       setNewPaymentSelection({
         userBundleId: location.state.selectedUserBundleId,
         bundleName: location.state.selectedBundleName,
         bundlePrice: location.state.selectedBundlePrice,
         userName: location.state.selectedUserName,
+        userId: location.state.selectedUserId, // Pass userId to CreatePaymentModal
       });
       setShowCreatePaymentModal(true);
       navigate(location.pathname, { replace: true, state: {} });
@@ -111,6 +117,7 @@ const Payments = () => {
       await deletePayment(paymentToDelete.paymentId);
       setShowDeleteConfirmModal(false);
       setPaymentToDelete(null);
+      await refreshPayments(); // Refresh after successful deletion
     } catch (error) {
       console.error("Failed to delete payment:", error);
     } finally {
@@ -119,19 +126,24 @@ const Payments = () => {
   };
 
   const handleRowClick = useCallback((event, paymentId) => {
-    event.stopPropagation();
+    event.stopPropagation(); // Prevent event bubbling
+    // Check if the click is on an action button inside the popover, if so, don't re-trigger.
+    // This check might be complex depending on exact event target structure.
+    // For simplicity, we'll rely on stopPropagation from buttons if they are direct children or handle it carefully.
+    
     const { clientX, clientY } = event;
-
     const payment = payments.find(p => p.paymentId === paymentId);
     if (!payment) return;
-
+  
     setPopoverState(prevState => {
       const isAlreadyShownForThisPayment = prevState.show && prevState.payment?.paymentId === paymentId;
       
       if (isAlreadyShownForThisPayment) {
+        // If clicking the same row when popover is open, close it
         setActiveRowId(null);
         return { show: false, target: null, payment: null };
       } else {
+        // If popover is open for another row, or closed, open for current row
         setActiveRowId(paymentId);
         return {
           show: true,
@@ -155,6 +167,42 @@ const Payments = () => {
     setPopoverState({ show: false, target: null, payment: null });
     setActiveRowId(null);
   }, []);
+
+  const handleNotifyViaWhatsappPopover = async () => {
+    if (!popoverState.payment?.userId) {
+        showErrorToast("User ID not found for this payment.");
+        return;
+    }
+    if (popoverState.payment.status === 'PAID') {
+        showErrorToast("Payment is already PAID. Notification not sent.");
+        closePopover();
+        return;
+    }
+    setIsFetchingWhatsappUserPopover(true);
+    try {
+        const user = await fetchUserById(popoverState.payment.userId);
+        if (user && user.phone) {
+            const link = generateWhatsAppLink(
+                user.phone,
+                popoverState.payment, // payment object has amount, dueDate, bundleName, userName
+                'reminder'
+            );
+            if (link) {
+                window.open(link, '_blank');
+                closePopover();
+            } else {
+                showErrorToast("Could not generate WhatsApp link. User phone number might be invalid.");
+            }
+        } else {
+            showErrorToast("User phone number not found or user details could not be fetched.");
+        }
+    } catch (error) {
+        showErrorToast("Failed to fetch user details for WhatsApp.");
+        console.error("WhatsApp user fetch error:", error);
+    } finally {
+        setIsFetchingWhatsappUserPopover(false);
+    }
+  };
 
 
   const uniquePaymentMethods = [...new Set(payments.map(p => p.paymentMethod).filter(Boolean))];
@@ -188,10 +236,10 @@ const Payments = () => {
         searchPlaceholder="Search payments..."
         renderHeader={() => (
           <Stack direction="horizontal" gap={2} className="ms-auto">
-            <Button variant="success" onClick={() => navigate('/users?flow=CP')} disabled={paymentsLoading} className="d-flex align-items-center">
+            <Button variant="success" onClick={() => navigate('/users?flow=CP')} disabled={paymentsLoading || isCreatingPayment} className="d-flex align-items-center">
               <PlusCircleFill className="me-2" /> Create Payment
             </Button>
-            <Button variant="outline-secondary" onClick={() => refreshPayments()} disabled={paymentsLoading} className="d-flex align-items-center">
+            <Button variant="outline-secondary" onClick={() => refreshPayments()} disabled={paymentsLoading || isCreatingPayment} className="d-flex align-items-center">
               <ArrowClockwise className={`me-2 ${paymentsLoading ? 'spin' : ''}`} /> Refresh
             </Button>
           </Stack>
@@ -221,7 +269,7 @@ const Payments = () => {
           </tr>
         )}
         containerStyle={{
-          maxHeight: 'calc(100vh - 250px)', // Kept for specific vertical scroll needs for the entire DataTable block
+          maxHeight: 'calc(100vh - 250px)',
         }}
       />
 
@@ -243,22 +291,39 @@ const Payments = () => {
                             variant="outline-primary"
                             size="sm"
                             className="d-flex align-items-center justify-content-start text-nowrap w-100"
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent popover from closing due to row click
                                 handleOpenUpdateModal(popoverState.payment);
                                 closePopover();
                             }}
-                            disabled={popoverState.payment.status === 'PAID'}
+                            disabled={popoverState.payment.status === 'PAID' || isFetchingWhatsappUserPopover}
                         >
                             <PencilSquare className="me-2 flex-shrink-0" /> Update Payment
+                        </Button>
+                        <Button
+                            variant="outline-success" // Changed to success for WhatsApp
+                            size="sm"
+                            className="d-flex align-items-center justify-content-start text-nowrap w-100"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleNotifyViaWhatsappPopover();
+                                // closePopover(); // Keep popover open or close based on preference
+                            }}
+                            disabled={popoverState.payment.status === 'PAID' || isFetchingWhatsappUserPopover || !popoverState.payment?.userId}
+                        >
+                            {isFetchingWhatsappUserPopover ? <Spinner size="sm" variant="success" className="me-2 flex-shrink-0" /> : <Whatsapp className="me-2 flex-shrink-0" />}
+                            Notify via WhatsApp
                         </Button>
                         <Button
                             variant="outline-danger"
                             size="sm"
                             className="d-flex align-items-center justify-content-start text-nowrap w-100"
-                            onClick={() => {
+                            onClick={(e) => {
+                                e.stopPropagation();
                                 handleOpenDeleteModal(popoverState.payment);
                                 closePopover();
                             }}
+                            disabled={isFetchingWhatsappUserPopover}
                         >
                             <Trash3 className="me-2 flex-shrink-0" /> Delete Payment
                         </Button>
@@ -271,7 +336,7 @@ const Payments = () => {
       <PaymentConfirmationModal
         show={showConfirmModal}
         onHide={() => { setShowConfirmModal(false); setSelectedPaymentForModal(null); }}
-        payment={selectedPaymentForModal}
+        payment={selectedPaymentForModal} // This should be the full payment object
         methods={uniquePaymentMethods}
         onConfirm={handleConfirmPaymentUpdate}
         isLoading={isUpdating}
@@ -280,7 +345,7 @@ const Payments = () => {
       <CreatePaymentModal
         show={showCreatePaymentModal}
         onHide={() => { setShowCreatePaymentModal(false); setNewPaymentSelection(null); }}
-        selectionData={newPaymentSelection}
+        selectionData={newPaymentSelection} // Ensure this includes userId
         paymentMethods={uniquePaymentMethods}
         onConfirmCreate={handleCreateNewPayment}
         isLoading={isCreatingPayment}
@@ -295,7 +360,7 @@ const Payments = () => {
         <Modal.Footer>
           <Button variant="secondary" onClick={() => setShowDeleteConfirmModal(false)} disabled={isDeleting}>Cancel</Button>
           <Button variant="danger" onClick={handleConfirmDeletePayment} disabled={isDeleting}>
-            {isDeleting ? 'Deleting...' : 'Delete Payment'}
+            {isDeleting ? <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> : 'Delete Payment'}
           </Button>
         </Modal.Footer>
       </Modal>

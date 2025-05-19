@@ -1,21 +1,31 @@
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import AppContext from '../context/AppContext'; // Assuming AppContext is in ../../context
+import { Whatsapp } from 'react-bootstrap-icons'; // Import Whatsapp icon
+import { generateWhatsAppLink } from '../utils/whatsappHelper'; // Corrected import path
+
 
 const PaymentConfirmationModal = ({
   show,
   onHide,
-  payment,
+  payment, // Expect payment to have: userId, userName, bundleName, dueDate, amount, status
   methods = [],
   onConfirm,
   isLoading
 }) => {
   const [selectedMethod, setSelectedMethod] = useState('');
   const [editableAmount, setEditableAmount] = useState(0);
+  const [isFetchingWhatsappUser, setIsFetchingWhatsappUser] = useState(false);
+
+  const { fetchUserById, showErrorToast } = useContext(AppContext);
 
   useEffect(() => {
-    if (show) {
-      setEditableAmount(payment?.amount || 0);
-      setSelectedMethod(payment?.paymentMethod || '');
+    if (show && payment) {
+      setEditableAmount(payment.amount || 0);
+      setSelectedMethod(payment.paymentMethod || '');
+      if (!payment.userId) {
+          console.warn("PaymentConfirmationModal: payment object is missing userId. WhatsApp notification may not work.");
+      }
     }
   }, [show, payment]);
 
@@ -26,6 +36,47 @@ const PaymentConfirmationModal = ({
       paymentDate: isFullPayment ? new Date().toISOString() : payment?.paymentDate,
       amount: Number(editableAmount)
     });
+  };
+
+  const handleNotifyViaWhatsapp = async () => {
+    if (!payment?.userId) {
+        showErrorToast("User ID not found for this payment.");
+        return;
+    }
+    if (payment.status === 'PAID') {
+        showErrorToast("Payment is already PAID. Notification not sent.");
+        return;
+    }
+
+    setIsFetchingWhatsappUser(true);
+    try {
+        const userDetails = await fetchUserById(payment.userId);
+        if (userDetails && userDetails.phone) {
+            const detailsForMsg = {
+                amount: editableAmount, // Use current amount from modal
+                dueDate: payment.dueDate,
+                bundleName: payment.bundleName,
+                userName: payment.userName,
+            };
+            const link = generateWhatsAppLink(
+                userDetails.phone,
+                detailsForMsg,
+                'reminder'
+            );
+            if (link) {
+                window.open(link, '_blank');
+            } else {
+                showErrorToast("Could not generate WhatsApp link. User phone number might be invalid.");
+            }
+        } else {
+            showErrorToast("User phone number not found or user details could not be fetched.");
+        }
+    } catch (error) {
+        showErrorToast("Failed to fetch user details for WhatsApp notification.");
+        console.error("WhatsApp user fetch error:", error);
+    } finally {
+        setIsFetchingWhatsappUser(false);
+    }
   };
 
   return (
@@ -65,22 +116,51 @@ const PaymentConfirmationModal = ({
             disabled 
           />
         </Form.Group>
+        {payment?.bundleName && (
+            <Form.Group className="mb-3">
+            <Form.Label>Bundle</Form.Label>
+            <Form.Control 
+                type="text" 
+                value={payment.bundleName} 
+                disabled 
+            />
+            </Form.Group>
+        )}
+        {payment?.dueDate && (
+            <Form.Group className="mb-3">
+            <Form.Label>Due Date</Form.Label>
+            <Form.Control 
+                type="text" 
+                value={new Date(payment.dueDate).toLocaleDateString()} 
+                disabled 
+            />
+            </Form.Group>
+        )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide} disabled={isLoading}>
+        <Button variant="secondary" onClick={onHide} disabled={isLoading || isFetchingWhatsappUser}>
           Cancel
+        </Button>
+         <Button
+            variant="success"
+            onClick={handleNotifyViaWhatsapp}
+            disabled={isLoading || isFetchingWhatsappUser || !payment?.userId || payment?.status === 'PAID'}
+            className="d-flex align-items-center"
+        >
+            {isFetchingWhatsappUser ? <Spinner size="sm" className="me-2" /> : <Whatsapp className="me-2" />}
+            Notify User
         </Button>
         <Button 
           variant="warning" 
           onClick={() => handleSubmit(false)}
-          disabled={isLoading}
+          disabled={isLoading || isFetchingWhatsappUser}
         >
           {isLoading ? <Spinner size="sm" /> : 'Update Amount'}
         </Button>
         <Button 
           variant="primary" 
           onClick={() => handleSubmit(true)}
-          disabled={isLoading}
+          disabled={isLoading || isFetchingWhatsappUser}
         >
           {isLoading ? <Spinner size="sm" /> : 'Mark Paid'}
         </Button>

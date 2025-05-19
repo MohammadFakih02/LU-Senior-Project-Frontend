@@ -4,26 +4,26 @@ import { Button, Card, Row, Col, Badge, Spinner, Alert, Accordion } from 'react-
 import AppContext from '../context/AppContext';
 
 const UserDetails = () => {
-  const { userId: routeUserId } = useParams(); 
+  const { userId: routeUserId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation(); 
+  const location = useLocation();
   const { fetchUserById } = useContext(AppContext);
 
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeAccordionKey, setActiveAccordionKey] = useState(null);
 
   const queryParams = new URLSearchParams(location.search);
-  const currentFlow = queryParams.get('flow'); 
+  const currentFlow = queryParams.get('flow');
 
   useEffect(() => {
     const loadUserData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const userData = await fetchUserById(routeUserId); 
-        setUser(userData); 
+        const userData = await fetchUserById(routeUserId);
+        setUser(userData);
       } catch (err) {
         setError(err.message || 'Failed to load user data');
       } finally {
@@ -42,7 +42,6 @@ const UserDetails = () => {
 
   const handleBundleDoubleClick = (selectedBundleSubscription) => {
     if (currentFlow === 'CP' && user) {
-      // selectedBundleSubscription contains userBundleId, bundle.name, bundle.price
       if (!selectedBundleSubscription?.userBundleId || !selectedBundleSubscription?.bundle?.name) {
         alert("Error: Selected bundle subscription is missing required UserBundleID or Name.");
         console.error("Selected bundle subscription data is incomplete:", selectedBundleSubscription);
@@ -52,11 +51,11 @@ const UserDetails = () => {
       navigate('/payments', {
         state: {
           flow: 'createPaymentCompleteCP',
-          // Pass information needed by CreatePaymentModal
           selectedUserBundleId: selectedBundleSubscription.userBundleId,
           selectedBundleName: selectedBundleSubscription.bundle.name,
           selectedBundlePrice: selectedBundleSubscription.bundle.price,
           selectedUserName: `${user.firstName} ${user.lastName} (User ID: ${user.userId})`, // For display
+          selectedUserId: user.userId, // ***** ADDED THIS LINE *****
         },
       });
     }
@@ -174,8 +173,8 @@ const UserDetails = () => {
             <h4 className="mb-3">Bundle Subscriptions</h4>
             <Accordion activeKey={activeAccordionKey}>
               {user.bundles.map((bundleSubscription, index) => (
-                <Accordion.Item 
-                  key={bundleSubscription.userBundleId || index} 
+                <Accordion.Item
+                  key={bundleSubscription.userBundleId || index}
                   eventKey={(bundleSubscription.userBundleId || index).toString()}
                   onDoubleClick={() => handleBundleDoubleClick(bundleSubscription)}
                   style={{ cursor: currentFlow === 'CP' ? 'pointer' : 'default' }}
@@ -212,9 +211,9 @@ const UserDetails = () => {
                           <strong>Speed:</strong> {bundleSubscription.bundle.speed} Mbps
                         </div>
                         <div className="mb-2">
-                          <strong>Data Cap:</strong> 
-                          {bundleSubscription.bundle.dataCap > 0 
-                            ? `${bundleSubscription.bundle.dataCap} GB` 
+                          <strong>Data Cap:</strong>
+                          {bundleSubscription.bundle.dataCap > 0
+                            ? `${bundleSubscription.bundle.dataCap} GB`
                             : 'Unlimited'}
                         </div>
                         <div className="mb-2">
@@ -241,9 +240,9 @@ const UserDetails = () => {
                       </Col>
                     </Row>
                     {currentFlow === 'CP' && (
-                      <Button 
-                        variant="outline-primary" 
-                        size="sm" 
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
                         className="mt-3"
                         onClick={() => handleBundleDoubleClick(bundleSubscription)}
                       >
@@ -261,4 +260,4 @@ const UserDetails = () => {
   );
 };
 
-export default UserDetails;
+export default UserDetails; 

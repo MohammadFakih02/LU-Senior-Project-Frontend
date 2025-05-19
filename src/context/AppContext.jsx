@@ -24,7 +24,7 @@ export const AppProvider = ({ children }) => {
         autoCreateMonthly: false,
         autoCreateOnUserCreation: false,
         autoDeletePaymentTime: 'never',
-        autoDisableBundleOnNoPayment: false, // New setting
+        autoDisableBundleOnNoPayment: false, 
       };
       return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
     } catch (error) {
@@ -33,7 +33,7 @@ export const AppProvider = ({ children }) => {
         autoCreateMonthly: false,
         autoCreateOnUserCreation: false,
         autoDeletePaymentTime: 'never',
-        autoDisableBundleOnNoPayment: false, // New setting
+        autoDisableBundleOnNoPayment: false, 
       };
     }
   });
@@ -243,14 +243,16 @@ export const AppProvider = ({ children }) => {
   };
 
   const fetchUserById = async (userId) => {
+    // No toast on success for this one as it's usually for internal data fetching
     try {
       const response = await axios.get(`http://localhost:8080/api/users/${userId}`);
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || `Failed to fetch user with ID ${userId}`;
-      showErrorToast(errorMessage);
-      console.error(`Fetch User By ID (${userId}) API Error:`, error.response?.data || error);
-      throw error.response?.data || error;
+      // showErrorToast(errorMessage); // Caller should handle toast if UI feedback is needed
+      // Corrected line: Use errorMessage in the console.error
+      console.error(`Fetch User By ID (${userId}) API Error: ${errorMessage}. Details:`, error.response?.data || error);
+      throw error.response?.data || error; // Re-throw for caller to handle
     }
   };
 
@@ -299,8 +301,8 @@ export const AppProvider = ({ children }) => {
   const deletePayment = async (paymentId) => {
     try {
       await axios.delete(`http://localhost:8080/api/payments/${paymentId}`);
-      await refreshPayments({ showToast: false }); // Refresh first
-      showSuccessToast('Payment deleted successfully'); // Then show toast
+      // await refreshPayments({ showToast: false }); // Refresh is now handled in Payments.jsx after success
+      showSuccessToast('Payment deleted successfully');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to delete payment';
       showErrorToast(errorMessage);
