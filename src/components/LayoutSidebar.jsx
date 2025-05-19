@@ -1,6 +1,6 @@
 // LayoutSidebar.jsx
 import { useState, useEffect, useContext } from "react";
-import { Col, Container, Row, Nav, Stack, Button, Form } from "react-bootstrap";
+import { Col, Container, Row, Nav, Stack, Button, Form, Alert } from "react-bootstrap";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { 
   PeopleFill, 
@@ -10,7 +10,8 @@ import {
   ChevronRight,
   LightningChargeFill,
   List,
-  X
+  X,
+  ArrowClockwise
 } from "react-bootstrap-icons";
 import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
@@ -25,11 +26,29 @@ const LayoutSidebar = () => {
   const { 
     appSettings, 
     updateAppSettings, 
-    showSuccessToast: contextShowSuccessToast 
+    showSuccessToast: contextShowSuccessToast,
+    usersError,
+    paymentsError,
+    bundlesError,
+    refreshUsers,
+    refreshPayments,
+    refreshBundles
   } = useContext(AppContext);
 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
+
+  // Calculate if at least two API calls have failed
+  const hasMultipleErrors = [usersError, paymentsError, bundlesError].filter(Boolean).length >= 2;
+
+  const handleRefreshAll = async () => {
+      await Promise.all([
+        refreshUsers({ showToast: false }),
+        refreshPayments({ showToast: false }),
+        refreshBundles({ showToast: false })
+      ]);
+      contextShowSuccessToast('All data refreshed successfully');
+  };
 
   useEffect(() => {
     setStagedSettings({ ...appSettings });
@@ -205,7 +224,7 @@ const LayoutSidebar = () => {
                       />
                     </Form.Group>
 
-                    <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment"> {/* New Setting */}
+                    <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment">
                       <Form.Check
                         type="switch"
                         name="autoDisableBundleOnNoPayment"
@@ -282,6 +301,22 @@ const LayoutSidebar = () => {
               </h4>
               <div style={{ width: '40px' }}></div> 
             </div>
+          )}
+          
+          {/* Error Alert and Refresh All Button */}
+          {hasMultipleErrors && (
+            <Alert variant="danger" className="mb-3">
+              <div className="d-flex justify-content-between align-items-center">
+                <span>Multiple data sources failed to load</span>
+                <Button 
+                  variant="danger" 
+                  onClick={handleRefreshAll}
+                  className="d-flex align-items-center gap-2"
+                >
+                  <ArrowClockwise /> Refresh All
+                </Button>
+              </div>
+            </Alert>
           )}
           
           <div className="bg-white rounded-2 shadow-sm p-4 h-100"> 
