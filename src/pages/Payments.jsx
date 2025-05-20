@@ -269,7 +269,6 @@ const Payments = () => {
           </tr>
         )}
         containerStyle={{
-          maxHeight: 'calc(100vh - 250px)',
         }}
       />
 

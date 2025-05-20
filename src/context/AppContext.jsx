@@ -1,3 +1,4 @@
+// AppContext.jsx
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -50,6 +51,7 @@ export const AppProvider = ({ children }) => {
 
 
   useEffect(() => {
+    // Optional: Dismiss all toasts on component unmount or initial setup
     return () => toast.dismiss();
   }, []);
 
@@ -141,6 +143,7 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh users');
       }
       console.error('Refresh Users API Error:', err.response?.data || err.message);
+      throw err; // Re-throw the error
     } finally {
       setUsersLoading(false);
     }
@@ -161,6 +164,7 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh payments');
       }
       console.error('Refresh Payments API Error:', err.response?.data || err.message);
+      throw err; // Re-throw the error
     } finally {
       setPaymentsLoading(false);
     }
@@ -181,6 +185,7 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh bundles');
       }
       console.error('Refresh Bundles API Error:', err.response?.data || err.message);
+      throw err; // Re-throw the error
     } finally {
       setBundlesLoading(false);
     }
@@ -243,16 +248,13 @@ export const AppProvider = ({ children }) => {
   };
 
   const fetchUserById = async (userId) => {
-    // No toast on success for this one as it's usually for internal data fetching
     try {
       const response = await axios.get(`http://localhost:8080/api/users/${userId}`);
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || `Failed to fetch user with ID ${userId}`;
-      // showErrorToast(errorMessage); // Caller should handle toast if UI feedback is needed
-      // Corrected line: Use errorMessage in the console.error
       console.error(`Fetch User By ID (${userId}) API Error: ${errorMessage}. Details:`, error.response?.data || error);
-      throw error.response?.data || error; // Re-throw for caller to handle
+      throw error.response?.data || error; 
     }
   };
 
@@ -301,7 +303,7 @@ export const AppProvider = ({ children }) => {
   const deletePayment = async (paymentId) => {
     try {
       await axios.delete(`http://localhost:8080/api/payments/${paymentId}`);
-      // await refreshPayments({ showToast: false }); // Refresh is now handled in Payments.jsx after success
+      await refreshPayments({ showToast: false }); // Refresh payments list after deletion
       showSuccessToast('Payment deleted successfully');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to delete payment';

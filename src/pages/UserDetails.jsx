@@ -36,7 +36,10 @@ const UserDetails = () => {
   }, [routeUserId, fetchUserById]);
 
   const toggleAccordion = (key) => {
-    setActiveAccordionKey(activeAccordionKey === key ? null : key.toString());
+    // Ensure the key being compared and set is a string,
+    // matching the type of eventKey used by Accordion.Item.
+    const keyAsString = key.toString();
+    setActiveAccordionKey(activeAccordionKey === keyAsString ? null : keyAsString);
   };
 
   const handleBundleDoubleClick = (selectedBundleSubscription) => {

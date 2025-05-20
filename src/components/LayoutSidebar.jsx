@@ -27,6 +27,7 @@ const LayoutSidebar = () => {
     appSettings, 
     updateAppSettings, 
     showSuccessToast: contextShowSuccessToast,
+    showErrorToast: contextShowErrorToast, // Added showErrorToast from context
     usersError,
     paymentsError,
     bundlesError,
@@ -41,12 +42,17 @@ const LayoutSidebar = () => {
   const hasMultipleErrors = [usersError, paymentsError, bundlesError].filter(Boolean).length >= 2;
 
   const handleRefreshAll = async () => {
+    try {
       await Promise.all([
         refreshUsers({ showToast: false }),
         refreshPayments({ showToast: false }),
         refreshBundles({ showToast: false })
       ]);
       contextShowSuccessToast('All data refreshed successfully');
+    } catch (error) {
+      console.error("Error during 'Refresh All' operation:", error);
+      contextShowErrorToast('Failed to refresh some data.');
+    }
   };
 
   useEffect(() => {
@@ -287,8 +293,7 @@ const LayoutSidebar = () => {
         >
           {/* Mobile Header container */}
           {isMobile && (
-            // This div ensures padding for the mobile header content, separate from the card's margin/padding
-            <div className="px-3 pt-3 px-md-4 pt-md-4"> {/* Using Bootstrap spacing for responsiveness */}
+            <div className="px-3 pt-3 px-md-4 pt-md-4">
               <div className="d-flex justify-content-between align-items-center">
                 <Button 
                   variant="outline-secondary" 
@@ -308,9 +313,8 @@ const LayoutSidebar = () => {
           
           {/* Alert container */}
           {hasMultipleErrors && (
-             // This div ensures padding for the alert, separate from the card's margin/padding
             <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'}`}>
-              <Alert variant="danger" className="mb-0"> {/* mb-0 if it's directly above the card with margin */}
+              <Alert variant="danger" className="mb-0">
                 <div className="d-flex justify-content-between align-items-center">
                   <span>Multiple data sources failed to load</span>
                   <Button 
