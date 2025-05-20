@@ -1,15 +1,14 @@
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect, useContext } from 'react';
-import AppContext from '../context/AppContext'; 
-import { Whatsapp } from 'react-bootstrap-icons'; 
-import { generateWhatsAppLink } from '../utils/whatsappHelper'; 
+import AppContext from '../context/AppContext';
+import { Whatsapp } from 'react-bootstrap-icons';
+import { generateWhatsAppLink } from '../utils/whatsappHelper';
 
 
 const CreatePaymentModal = ({
   show,
   onHide,
-  selectionData, 
-  paymentMethods = [],
+  selectionData,
   onConfirmCreate,
   isLoading
 }) => {
@@ -23,6 +22,7 @@ const CreatePaymentModal = ({
   const { fetchUserById, showErrorToast } = useContext(AppContext);
 
   const paymentStatuses = ['PENDING', 'UNPAID', 'PAID'];
+  const fixedPaymentMethods = ['Cash', 'Card', 'Other'];
 
   useEffect(() => {
     if (show && selectionData) {
@@ -30,7 +30,7 @@ const CreatePaymentModal = ({
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setDueDate('');
       setSelectedMethod('');
-      setSelectedStatus('PENDING');
+      setSelectedStatus('PENDING'); // Default to PENDING
     } else if (!selectionData && show) {
         console.error("CreatePaymentModal opened without selectionData!");
         if (!selectionData?.userId) {
@@ -40,6 +40,13 @@ const CreatePaymentModal = ({
     }
   }, [show, selectionData, onHide]);
 
+  useEffect(() => {
+    // If status is not 'PAID', clear and disable payment method
+    if (selectedStatus !== 'PAID') {
+      setSelectedMethod('');
+    }
+  }, [selectedStatus]);
+
   const handleSubmit = () => {
     if (!selectionData?.userBundleId) {
       console.error("UserBundleID missing in CreatePaymentModal", selectionData);
@@ -48,23 +55,23 @@ const CreatePaymentModal = ({
     }
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
 
     if (!dueDate) {
       showErrorToast("Due Date is required.");
       return;
     }
-    const parsedDueDate = new Date(dueDate + "T00:00:00Z"); 
+    const parsedDueDate = new Date(dueDate + "T00:00:00Z");
     if (parsedDueDate < today) {
       showErrorToast("Due Date must be in the present or future.");
       return;
     }
 
-    if (!selectedMethod) {
-      showErrorToast("Payment Method is required."); 
+    if (selectedStatus === 'PAID' && !selectedMethod) {
+      showErrorToast("Payment Method is required when status is PAID.");
       return;
     }
-    
+
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount < 0.01) {
       showErrorToast("Amount must be a number greater than 0.");
@@ -75,7 +82,7 @@ const CreatePaymentModal = ({
       amount: numericAmount,
       paymentDate: paymentDate ? new Date(paymentDate + "T00:00:00Z").toISOString() : null,
       dueDate: dueDate ? new Date(dueDate + "T00:00:00Z").toISOString() : null,
-      paymentMethod: selectedMethod,
+      paymentMethod: selectedStatus === 'PAID' ? selectedMethod : null,
       status: selectedStatus,
       userBundleId: selectionData.userBundleId,
     };
@@ -102,8 +109,8 @@ const CreatePaymentModal = ({
             const paymentDetailsForMsg = {
                 amount: amount,
                 dueDate: dueDate,
-                bundleName: selectionData.bundleName, 
-                userName: nameForMessage, 
+                bundleName: selectionData.bundleName,
+                userName: nameForMessage,
             };
             const link = generateWhatsAppLink(
                 user.phone,
@@ -145,7 +152,7 @@ const CreatePaymentModal = ({
           <Form.Label>User</Form.Label>
           <Form.Control
             type="text"
-            value={userNameDisplay} 
+            value={userNameDisplay}
             disabled
           />
         </Form.Group>
@@ -154,7 +161,7 @@ const CreatePaymentModal = ({
           <Form.Label>Selected User Bundle</Form.Label>
           <Form.Control
             type="text"
-            value={bundleNameDisplay} 
+            value={bundleNameDisplay}
             disabled
           />
         </Form.Group>
@@ -191,20 +198,6 @@ const CreatePaymentModal = ({
         </Form.Group>
 
         <Form.Group className="mb-3">
-          <Form.Label>Payment Method *</Form.Label>
-          <Form.Select
-            value={selectedMethod}
-            onChange={(e) => setSelectedMethod(e.target.value)}
-            required
-          >
-            <option value="">Select method</option>
-            {paymentMethods.map(method => (
-              <option key={method} value={method}>{method}</option>
-            ))}
-          </Form.Select>
-        </Form.Group>
-
-        <Form.Group className="mb-3">
           <Form.Label>Status</Form.Label>
           <Form.Select
             value={selectedStatus}
@@ -212,6 +205,21 @@ const CreatePaymentModal = ({
           >
             {paymentStatuses.map(status => (
               <option key={status} value={status}>{status}</option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+
+        <Form.Group className="mb-3">
+          <Form.Label>Payment Method {selectedStatus === 'PAID' ? '*' : '(Optional)'}</Form.Label>
+          <Form.Select
+            value={selectedMethod}
+            onChange={(e) => setSelectedMethod(e.target.value)}
+            disabled={selectedStatus !== 'PAID' || isLoading}
+            required={selectedStatus === 'PAID'}
+          >
+            <option value="">Select method</option>
+            {fixedPaymentMethods.map(method => (
+              <option key={method} value={method}>{method}</option>
             ))}
           </Form.Select>
         </Form.Group>
@@ -233,7 +241,14 @@ const CreatePaymentModal = ({
         <Button
           variant="primary"
           onClick={handleSubmit}
-          disabled={isLoading || isFetchingWhatsappUser || !amount || !dueDate || !selectedMethod || !selectionData?.userBundleId}
+          disabled={
+            isLoading ||
+            isFetchingWhatsappUser ||
+            !amount ||
+            !dueDate ||
+            (selectedStatus === 'PAID' && !selectedMethod) ||
+            !selectionData?.userBundleId
+          }
         >
           {isLoading ? <Spinner size="sm" /> : 'Create Payment'}
         </Button>

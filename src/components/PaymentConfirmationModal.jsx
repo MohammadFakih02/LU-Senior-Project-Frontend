@@ -1,15 +1,14 @@
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect, useContext } from 'react';
-import AppContext from '../context/AppContext'; // Assuming AppContext is in ../../context
-import { Whatsapp } from 'react-bootstrap-icons'; // Import Whatsapp icon
-import { generateWhatsAppLink } from '../utils/whatsappHelper'; // Corrected import path
+import AppContext from '../context/AppContext';
+import { Whatsapp } from 'react-bootstrap-icons';
+import { generateWhatsAppLink } from '../utils/whatsappHelper';
 
 
 const PaymentConfirmationModal = ({
   show,
   onHide,
-  payment, // Expect payment to have: userId, userName, bundleName, dueDate, amount, status
-  methods = [],
+  payment,
   onConfirm,
   isLoading
 }) => {
@@ -18,10 +17,12 @@ const PaymentConfirmationModal = ({
   const [isFetchingWhatsappUser, setIsFetchingWhatsappUser] = useState(false);
 
   const { fetchUserById, showErrorToast } = useContext(AppContext);
+  const fixedPaymentMethods = ['Cash', 'Card', 'Other'];
 
   useEffect(() => {
     if (show && payment) {
       setEditableAmount(payment.amount || 0);
+      // Pre-fill method if payment has one, otherwise leave it for user to select if marking as PAID
       setSelectedMethod(payment.paymentMethod || '');
       if (!payment.userId) {
           console.warn("PaymentConfirmationModal: payment object is missing userId. WhatsApp notification may not work.");
@@ -29,13 +30,32 @@ const PaymentConfirmationModal = ({
     }
   }, [show, payment]);
 
-  const handleSubmit = (isFullPayment = true) => {
-    onConfirm({
-      status: isFullPayment ? 'PAID' : payment?.status,
-      paymentMethod: isFullPayment ? (selectedMethod || payment?.paymentMethod) : payment?.paymentMethod,
-      paymentDate: isFullPayment ? new Date().toISOString() : payment?.paymentDate,
-      amount: Number(editableAmount)
-    });
+  const handleSubmit = (isMarkingPaid = true) => {
+    const numericAmount = Number(editableAmount);
+    if (isNaN(numericAmount) || numericAmount < 0.01) {
+        showErrorToast("Amount must be a number greater than 0.");
+        return;
+    }
+
+    if (isMarkingPaid) {
+      if (!selectedMethod) {
+        showErrorToast("Payment Method is required to mark as PAID.");
+        return;
+      }
+      onConfirm({
+        status: 'PAID',
+        paymentMethod: selectedMethod,
+        paymentDate: new Date().toISOString(),
+        amount: numericAmount
+      });
+    } else { // Update Amount action
+      onConfirm({
+        status: payment?.status, // Keep original status
+        paymentMethod: payment?.paymentMethod, // Keep original method
+        paymentDate: payment?.paymentDate, // Keep original payment date
+        amount: numericAmount
+      });
+    }
   };
 
   const handleNotifyViaWhatsapp = async () => {
@@ -44,8 +64,9 @@ const PaymentConfirmationModal = ({
         return;
     }
     if (payment.status === 'PAID') {
-        showErrorToast("Payment is already PAID. Notification not sent.");
-        return;
+        showErrorToast("Payment is already PAID. Reminder notification not typically sent.");
+        // We could allow sending it anyway, but for now, let's restrict.
+        // return;
     }
 
     setIsFetchingWhatsappUser(true);
@@ -53,7 +74,7 @@ const PaymentConfirmationModal = ({
         const userDetails = await fetchUserById(payment.userId);
         if (userDetails && userDetails.phone) {
             const detailsForMsg = {
-                amount: editableAmount, // Use current amount from modal
+                amount: editableAmount,
                 dueDate: payment.dueDate,
                 bundleName: payment.bundleName,
                 userName: payment.userName,
@@ -61,7 +82,7 @@ const PaymentConfirmationModal = ({
             const link = generateWhatsAppLink(
                 userDetails.phone,
                 detailsForMsg,
-                'reminder'
+                payment.status === 'PAID' ? 'payment_confirmation' : 'reminder' // Adjust message type
             );
             if (link) {
                 window.open(link, '_blank');
@@ -87,22 +108,24 @@ const PaymentConfirmationModal = ({
       <Modal.Body>
         <Form.Group className="mb-3">
           <Form.Label>Amount</Form.Label>
-          <Form.Control 
-            type="number" 
+          <Form.Control
+            type="number"
             step="0.01"
             value={editableAmount}
             onChange={(e) => setEditableAmount(e.target.value)}
+            disabled={isLoading || isFetchingWhatsappUser}
           />
         </Form.Group>
 
         <Form.Group className="mb-3">
-          <Form.Label>Payment Method</Form.Label>
+          <Form.Label>Payment Method {payment?.status !== 'PAID' ? '(Required if Marking Paid)' : ''}</Form.Label>
           <Form.Select
             value={selectedMethod}
             onChange={(e) => setSelectedMethod(e.target.value)}
+            disabled={isLoading || isFetchingWhatsappUser}
           >
-            <option value="" disabled>Select method</option>
-            {methods.map(method => (
+            <option value="">Select method</option>
+            {fixedPaymentMethods.map(method => (
               <option key={method} value={method}>{method}</option>
             ))}
           </Form.Select>
@@ -110,31 +133,41 @@ const PaymentConfirmationModal = ({
 
         <Form.Group className="mb-3">
           <Form.Label>User</Form.Label>
-          <Form.Control 
-            type="text" 
-            value={payment?.userName || 'Unknown'} 
-            disabled 
+          <Form.Control
+            type="text"
+            value={payment?.userName || 'Unknown'}
+            disabled
           />
         </Form.Group>
         {payment?.bundleName && (
             <Form.Group className="mb-3">
             <Form.Label>Bundle</Form.Label>
-            <Form.Control 
-                type="text" 
-                value={payment.bundleName} 
-                disabled 
+            <Form.Control
+                type="text"
+                value={payment.bundleName}
+                disabled
             />
             </Form.Group>
         )}
         {payment?.dueDate && (
             <Form.Group className="mb-3">
             <Form.Label>Due Date</Form.Label>
-            <Form.Control 
-                type="text" 
-                value={new Date(payment.dueDate).toLocaleDateString()} 
-                disabled 
+            <Form.Control
+                type="text"
+                value={new Date(payment.dueDate).toLocaleDateString()}
+                disabled
             />
             </Form.Group>
+        )}
+        {payment?.status && (
+             <Form.Group className="mb-3">
+             <Form.Label>Current Status</Form.Label>
+             <Form.Control
+                 type="text"
+                 value={payment.status}
+                 disabled
+             />
+             </Form.Group>
         )}
       </Modal.Body>
       <Modal.Footer>
@@ -144,26 +177,39 @@ const PaymentConfirmationModal = ({
          <Button
             variant="success"
             onClick={handleNotifyViaWhatsapp}
-            disabled={isLoading || isFetchingWhatsappUser || !payment?.userId || payment?.status === 'PAID'}
+            disabled={isLoading || isFetchingWhatsappUser || !payment?.userId}
             className="d-flex align-items-center"
         >
             {isFetchingWhatsappUser ? <Spinner size="sm" className="me-2" /> : <Whatsapp className="me-2" />}
             Notify User
         </Button>
-        <Button 
-          variant="warning" 
-          onClick={() => handleSubmit(false)}
-          disabled={isLoading || isFetchingWhatsappUser}
-        >
-          {isLoading ? <Spinner size="sm" /> : 'Update Amount'}
-        </Button>
-        <Button 
-          variant="primary" 
-          onClick={() => handleSubmit(true)}
-          disabled={isLoading || isFetchingWhatsappUser}
-        >
-          {isLoading ? <Spinner size="sm" /> : 'Mark Paid'}
-        </Button>
+        {payment?.status !== 'PAID' && (
+            <Button
+            variant="warning"
+            onClick={() => handleSubmit(false)} // Update Amount
+            disabled={isLoading || isFetchingWhatsappUser}
+            >
+            {isLoading ? <Spinner size="sm" /> : 'Update Amount'}
+            </Button>
+        )}
+        {payment?.status !== 'PAID' && (
+            <Button
+            variant="primary"
+            onClick={() => handleSubmit(true)} // Mark Paid
+            disabled={isLoading || isFetchingWhatsappUser || !selectedMethod}
+            >
+            {isLoading ? <Spinner size="sm" /> : 'Mark Paid'}
+            </Button>
+        )}
+        {payment?.status === 'PAID' && ( // If already paid, allow updating amount (and potentially method if user changed it)
+             <Button
+             variant="primary"
+             onClick={() => handleSubmit(true)} // Effectively "Update Paid Payment"
+             disabled={isLoading || isFetchingWhatsappUser || !selectedMethod} // Method still required for a PAID record
+             >
+             {isLoading ? <Spinner size="sm" /> : 'Update Payment'}
+             </Button>
+        )}
       </Modal.Footer>
     </Modal>
   );
