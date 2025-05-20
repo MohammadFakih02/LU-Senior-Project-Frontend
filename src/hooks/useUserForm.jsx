@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Row, Col, Form, Button } from "react-bootstrap";
 
-// Define URL_REGEX_PATTERN here as it's used for heuristics within this hook
 const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
 
 const useUserForm = ({

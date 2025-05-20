@@ -36,8 +36,6 @@ const UserDetails = () => {
   }, [routeUserId, fetchUserById]);
 
   const toggleAccordion = (key) => {
-    // Ensure the key being compared and set is a string,
-    // matching the type of eventKey used by Accordion.Item.
     const keyAsString = key.toString();
     setActiveAccordionKey(activeAccordionKey === keyAsString ? null : keyAsString);
   };
@@ -56,7 +54,7 @@ const UserDetails = () => {
           selectedUserBundleId: selectedBundleSubscription.userBundleId,
           selectedBundleName: selectedBundleSubscription.bundle.name,
           selectedBundlePrice: selectedBundleSubscription.bundle.price,
-          selectedUserName: `${user.firstName} ${user.lastName} (User ID: ${user.userId})`, // For display
+          selectedUserName: `${user.firstName} ${user.lastName} (User ID: ${user.userId})`,
           selectedUserId: user.userId,
         },
       });

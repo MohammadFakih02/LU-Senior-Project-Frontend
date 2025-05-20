@@ -10,9 +10,6 @@ import BundleSubscriptionsSection from "../components/userform/BundleSubscriptio
 import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
-// URL_REGEX_PATTERN is no longer needed here for validation if we relax it.
-// It will be handled within useUserForm for its specific heuristics.
-
 const UserForm = () => {
   const {
     bundles,
@@ -64,14 +61,10 @@ const UserForm = () => {
     building: { required: "Building is required", maxLength: { value: 45, message: "Building must be at most 45 characters" } },
     floor: { maxLength: { value: 45, message: "Floor must be at most 45 characters" } },
     googleMapsUrl: {
-        // Pattern validation removed to make it less specific on the frontend.
-        // Backend @URL annotation will handle the strict URL format validation.
         maxLength: {
             value: 255,
             message: "Google Maps URL must be at most 255 characters"
         }
-        // A placeholder or helper text in PrimaryLocationSection is recommended
-        // e.g., "Enter a valid web address like https://maps.google.com/..."
     },
   };
 
@@ -98,7 +91,7 @@ const UserForm = () => {
     handleModalClose,
     renderBundleLocationFields,
     handlePrimaryLocationMapPick,
-  } = useUserForm({ // URL_REGEX_PATTERN no longer passed as a prop
+  } = useUserForm({
     isEditMode,
     userId,
     fetchUserById,
@@ -187,7 +180,7 @@ const UserForm = () => {
                 register={register}
                 errors={errors}
                 onMapPickClick={handlePrimaryLocationMapPick}
-                validations={primaryLocationValidations} // Now uses the relaxed googleMapsUrl validation
+                validations={primaryLocationValidations}
               />
             </Row>
 
