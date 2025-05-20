@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Row, Col, Form, Button } from "react-bootstrap";
 
-
+// Define URL_REGEX_PATTERN here as it's used for heuristics within this hook
 const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
 
 const useUserForm = ({
@@ -32,8 +32,6 @@ const useUserForm = ({
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [formData, setFormData] = useState(null);
 
-  // URL_REGEX_PATTERN is now defined outside
-
   useEffect(() => {
     if (!isEditMode || !userId) {
       setIsLoading(false);
@@ -50,6 +48,7 @@ const useUserForm = ({
           lastName: userData.lastName,
           email: userData.email,
           phone: userData.phone,
+          landLine: userData.landLine || "",
           address: userData.location?.address,
           city: userData.location?.city,
           street: userData.location?.street,
@@ -62,16 +61,17 @@ const useUserForm = ({
 
         if (userData.bundles?.length > 0) {
           setSelectedBundles(
-            userData.bundles.map((bundle, index) => ({
-              tempId: `${bundle.bundle.bundleId}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              bundleId: bundle.bundle.bundleId,
-              address: bundle.bundleLocation?.address || "",
-              city: bundle.bundleLocation?.city || "",
-              street: bundle.bundleLocation?.street || "",
-              building: bundle.bundleLocation?.building || "",
-              floor: bundle.bundleLocation?.floor || "",
-              googleMapsUrl: bundle.bundleLocation?.googleMapsUrl || "",
-              status: bundle.status || "ACTIVE"
+            userData.bundles.map((bundleSubscription, index) => ({
+              tempId: `${bundleSubscription.bundle.bundleId}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              bundleId: bundleSubscription.bundle.bundleId,
+              address: bundleSubscription.bundleLocation?.address || "",
+              city: bundleSubscription.bundleLocation?.city || "",
+              street: bundleSubscription.bundleLocation?.street || "",
+              building: bundleSubscription.bundleLocation?.building || "",
+              floor: bundleSubscription.bundleLocation?.floor || "",
+              googleMapsUrl: bundleSubscription.bundleLocation?.googleMapsUrl || "",
+              status: bundleSubscription.status || "ACTIVE",
+              subscriptionDate: bundleSubscription.subscriptionDate
             }))
           );
         } else {
@@ -79,13 +79,14 @@ const useUserForm = ({
         }
       } catch (error) {
         setApiError(error.message || "Failed to load user data");
+        showErrorToast("Error loading user data. " + (error.message || ""));
       } finally {
         setIsLoading(false);
       }
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setSelectedBundles, setApiError]);
+  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setSelectedBundles, setApiError, showErrorToast]);
 
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
@@ -128,10 +129,8 @@ const useUserForm = ({
         bundleErrors[`floor-${bundle.tempId}`] = "Floor must be at most 45 characters";
         isValid = false;
       }
-      if (bundle.googleMapsUrl && !URL_REGEX_PATTERN.test(bundle.googleMapsUrl)) {
-        bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "Invalid URL format";
-        isValid = false;
-      } else if (bundle.googleMapsUrl && bundle.googleMapsUrl.length > 255) {
+
+      if (bundle.googleMapsUrl && bundle.googleMapsUrl.length > 255) {
         bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "URL must be at most 255 characters";
         isValid = false;
       }
@@ -141,20 +140,22 @@ const useUserForm = ({
   }, [selectedBundles]);
 
   const prepareSubmit = useCallback((data) => {
+    clearErrors();
+    setValidationErrors({});
+    setApiError("");
+
     if (!validateBundleLocations()) {
-      showErrorToast("Please fix bundle location errors");
+      showErrorToast("Please fix errors in Bundle Subscriptions.");
       return;
     }
     setFormData(data);
     setShowSaveConfirm(true);
-  }, [validateBundleLocations, showErrorToast]);
+  }, [validateBundleLocations, showErrorToast, setValidationErrors, setApiError, setFormData, setShowSaveConfirm, clearErrors]);
 
   const onSubmit = useCallback(async () => {
     setShowSaveConfirm(false);
     setIsSubmitting(true);
     setApiError("");
-    clearErrors();
-    setValidationErrors({});
 
     if (!validateBundleLocations()) {
          showErrorToast("Bundle validation failed. Please re-check.");
@@ -167,40 +168,45 @@ const useUserForm = ({
       lastName: formData.lastName,
       email: formData.email,
       phone: formData.phone,
+      landLine: formData.landLine || null,
       status: userStatus,
       location: {
         address: formData.address,
         city: formData.city,
         street: formData.street,
         building: formData.building,
-        floor: formData.floor,
+        floor: formData.floor || null,
         googleMapsUrl: formData.googleMapsUrl || null,
       },
       bundleSubscriptions: selectedBundles.map((bundle) => ({
         bundleId: bundle.bundleId,
         status: bundle.status,
+        subscriptionDate: bundle.subscriptionDate || new Date().toISOString().split('T')[0],
         location: {
           address: bundle.address,
           city: bundle.city,
           street: bundle.street,
           building: bundle.building,
-          floor: bundle.floor,
+          floor: bundle.floor || null,
           googleMapsUrl: bundle.googleMapsUrl || null,
         },
       })),
     };
 
     try {
+      let response;
       if (isEditMode) {
-        await updateUser(userId, userData);
+        response = await updateUser(userId, userData);
       } else {
-        await createUser(userData);
+        response = await createUser(userData);
       }
+      navigate(`/users/${response.userId || userId}`);
 
-      navigate("/users");
     } catch (error) {
-       console.error("Submission error:", error);
+      console.error("Submission error:", error);
       if (error.response?.data?.errors) {
+        let hasRHFError = false;
+        let hasBundleError = false;
         error.response.data.errors.forEach((err) => {
            const bundleMatch = err.field.match(/^bundleSubscriptions\[(\d+)\].location\.(\w+)$/);
            if(bundleMatch) {
@@ -212,27 +218,38 @@ const useUserForm = ({
                     ...prev,
                     [`${field}-${bundleTempId}`]: err.message
                  }));
+                 hasBundleError = true;
               } else {
-                 console.warn(`Server error for bundle index ${index} not found in state.`);
+                 console.warn(`Server error for bundle index ${index} not found in state. Error: ${err.message}`);
               }
-           } else if (err.field === 'location.address') {
-              setError('address', { type: 'server', message: err.message });
-           } else if (err.field === 'location.city') {
-              setError('city', { type: 'server', message: err.message });
-           } else if (err.field === 'location.street') {
-              setError('street', { type: 'server', message: err.message });
-           } else if (err.field === 'location.building') {
-              setError('building', { type: 'server', message: err.message });
-           } else {
+           } else if (err.field.startsWith('location.')) {
+              const RHFField = err.field.split('.')[1];
+              setError(RHFField, { type: 'server', message: err.message });
+              hasRHFError = true;
+           }
+            else {
              setError(err.field, {
                type: "server",
                message: err.message,
              });
+             hasRHFError = true;
            }
         });
+        if (hasRHFError && !hasBundleError) {
+            showErrorToast("Please correct the highlighted form errors.");
+        } else if (hasBundleError && !hasRHFError) {
+            showErrorToast("Please correct errors in Bundle Subscriptions.");
+        } else if (hasBundleError && hasRHFError) {
+            showErrorToast("Please correct errors in the form and Bundle Subscriptions.");
+        } else {
+            setApiError(error.response.data.message || "Validation errors occurred. Please check your input.");
+            showErrorToast(error.response.data.message || "Validation errors occurred.");
+        }
+
       } else {
         const errorMsg = error.response?.data?.message || error.message || "An unexpected error occurred";
         setApiError(errorMsg);
+        showErrorToast(errorMsg);
       }
     } finally {
       setIsSubmitting(false);
@@ -247,7 +264,6 @@ const useUserForm = ({
     createUser,
     navigate,
     showErrorToast,
-    clearErrors,
     setError,
     validateBundleLocations,
     setValidationErrors
@@ -255,30 +271,34 @@ const useUserForm = ({
 
    const openGoogleMaps = useCallback((locationData, existingUrl) => {
     let urlToOpen = '';
-
     const googleMapsUrlRegex = /^(https?:\/\/)?(www\.)?google\.com\/maps\/.+/i;
 
     if (existingUrl && googleMapsUrlRegex.test(existingUrl)) {
         urlToOpen = existingUrl;
-    } else {
-        const { address, street, city } = locationData; 
+    } else if (existingUrl && URL_REGEX_PATTERN.test(existingUrl)) {
+        urlToOpen = existingUrl;
+    }
+    else {
+        const { address, city } = locationData;
         const queryParts = [];
         if (address) queryParts.push(address);
-        if (street) queryParts.push(street);
         if (city) queryParts.push(city);
-        
+
         const queryString = queryParts.join(', ');
 
         if (queryString) {
             urlToOpen = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryString)}`;
         } else {
              urlToOpen = `https://www.google.com/maps`;
-             showWarningToast("No address data available to generate search query. Opening general Google Maps.");
+             showWarningToast("No address data to generate search query. Opening general Google Maps.");
         }
     }
 
     if (urlToOpen) {
-        window.open(urlToOpen, '_blank');
+        if (!/^https?:\/\//i.test(urlToOpen)) {
+            urlToOpen = 'https://' + urlToOpen;
+        }
+        window.open(urlToOpen, '_blank', 'noopener,noreferrer');
     }
    }, [showWarningToast]);
 
@@ -286,13 +306,10 @@ const useUserForm = ({
     const {
         address,
         city,
-        street,
-        building,
-        floor,
         googleMapsUrl
-    } = getValues(); 
-    const primaryLocationData = { address, city, street, building, floor, googleMapsUrl };
-    openGoogleMaps(primaryLocationData, primaryLocationData.googleMapsUrl);
+    } = getValues();
+    const primaryLocationData = { address, city };
+    openGoogleMaps(primaryLocationData, googleMapsUrl);
   }, [getValues, openGoogleMaps]);
 
 
@@ -303,8 +320,6 @@ const useUserForm = ({
         address: bundle.address,
         city: bundle.city,
         street: bundle.street,
-        building: bundle.building,
-        floor: bundle.floor,
       };
       openGoogleMaps(bundleLocationData, bundle.googleMapsUrl);
     }
@@ -324,11 +339,12 @@ const useUserForm = ({
       building: "",
       floor: "",
       googleMapsUrl: "",
-      status: "ACTIVE"
+      status: "ACTIVE",
+      subscriptionDate: new Date().toISOString().split('T')[0]
     };
     setSelectedBundles(prev => [...prev, newBundle]);
     setActiveAccordionKey(newBundle.tempId);
-    showInfoToast("Bundle added! Configure its location below");
+    showInfoToast("Bundle added! Configure its location below.");
   }, [showInfoToast]);
 
   const handleRemoveBundle = useCallback((tempId) => {
@@ -350,25 +366,22 @@ const useUserForm = ({
       return newErrors;
     });
 
-    showWarningToast("Bundle removed");
-  }, [activeAccordionKey, setValidationErrors, showWarningToast]);
+    showWarningToast("Bundle subscription removed.");
+  }, [activeAccordionKey, showWarningToast]);
 
   const handleBundleLocationChange = useCallback((tempId, field, value) => {
     setSelectedBundles(prev => prev.map(b =>
       b.tempId === tempId ? {...b, [field]: value} : b
     ));
 
-    if (value && validationErrors[`${field}-${tempId}`]) {
+    if (validationErrors[`${field}-${tempId}`]) {
       setValidationErrors(prev => {
         const newErrors = {...prev};
-        if (newErrors[`${field}-${tempId}`]) { 
-           delete newErrors[`${field}-${tempId}`]; 
-        }
+        delete newErrors[`${field}-${tempId}`];
         return newErrors;
       });
     }
-  }, [setValidationErrors, validationErrors]);
-
+  }, [validationErrors]);
 
   const handleBundleStatusChange = useCallback((tempId, newStatus) => {
     setSelectedBundles(prev => prev.map(b =>
@@ -377,7 +390,7 @@ const useUserForm = ({
   }, []);
 
   const toggleAccordion = useCallback((key) => {
-    setActiveAccordionKey(prev => prev === key ? null : key);
+    setActiveAccordionKey(prev => prev === key ? null : key.toString());
   }, []);
 
   const confirmRemoveBundle = useCallback((tempId) => {
@@ -389,34 +402,25 @@ const useUserForm = ({
     if (type === 'delete') {
       setShowDeleteConfirm(false);
       setBundleToDelete(null);
-    } else {
+    } else if (type === 'save') {
       setShowSaveConfirm(false);
-      setFormData(null);
-      setIsSubmitting(false);
     }
   }, []);
 
   const handleSetBundleLocationToPrimary = useCallback((bundleTempId) => {
-    const {
-      address: primaryAddress,
-      city: primaryCity,
-      street: primaryStreet,
-      building: primaryBuilding,
-      floor: primaryFloor,
-      googleMapsUrl: primaryGoogleMapsUrl,
-    } = getValues(); 
+    const primaryLocationValues = getValues();
 
     setSelectedBundles(prevBundles =>
       prevBundles.map(b => {
         if (b.tempId === bundleTempId) {
           return {
             ...b,
-            address: primaryAddress || "",
-            city: primaryCity || "",
-            street: primaryStreet || "",
-            building: primaryBuilding || "",
-            floor: primaryFloor || "",
-            googleMapsUrl: primaryGoogleMapsUrl || "",
+            address: primaryLocationValues.address || "",
+            city: primaryLocationValues.city || "",
+            street: primaryLocationValues.street || "",
+            building: primaryLocationValues.building || "",
+            floor: primaryLocationValues.floor || "",
+            googleMapsUrl: primaryLocationValues.googleMapsUrl || "",
           };
         }
         return b;
@@ -425,17 +429,24 @@ const useUserForm = ({
 
     setValidationErrors(prevErrors => {
       const newErrors = { ...prevErrors };
-      if (primaryAddress) delete newErrors[`address-${bundleTempId}`]; 
-      if (primaryCity) delete newErrors[`city-${bundleTempId}`]; 
-      if (primaryStreet) delete newErrors[`street-${bundleTempId}`];
-      if (primaryBuilding) delete newErrors[`building-${bundleTempId}`];
-      if (primaryGoogleMapsUrl && URL_REGEX_PATTERN.test(primaryGoogleMapsUrl)) delete newErrors[`googleMapsUrl-${bundleTempId}`];
+      const fieldsToClear = ['address', 'city', 'street', 'building', 'googleMapsUrl'];
+      fieldsToClear.forEach(field => {
+          const primaryValue = primaryLocationValues[field];
+          if (primaryValue) {
+              if (field === 'googleMapsUrl' && URL_REGEX_PATTERN.test(primaryValue)) {
+                delete newErrors[`${field}-${bundleTempId}`];
+              } else if (field !== 'googleMapsUrl') {
+                delete newErrors[`${field}-${bundleTempId}`];
+              }
+          } else if (field === 'googleMapsUrl' && !primaryValue) {
+            delete newErrors[`${field}-${bundleTempId}`];
+          }
+      });
       return newErrors;
     });
 
     showInfoToast("Bundle location set to user's primary location.");
-  }, [getValues, setSelectedBundles, setValidationErrors, showInfoToast]); // URL_REGEX_PATTERN is stable
-
+  }, [getValues, showInfoToast]);
 
   const renderBundleLocationFields = useCallback((bundle) => (
     <Row className="g-3">
@@ -457,6 +468,7 @@ const useUserForm = ({
             value={bundle.address}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'address', e.target.value)}
             isInvalid={!!validationErrors[`address-${bundle.tempId}`]}
+            required
           />
           <Form.Control.Feedback type="invalid">
             {validationErrors[`address-${bundle.tempId}`]}
@@ -471,6 +483,7 @@ const useUserForm = ({
             value={bundle.city}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'city', e.target.value)}
             isInvalid={!!validationErrors[`city-${bundle.tempId}`]}
+            required
           />
           <Form.Control.Feedback type="invalid">
             {validationErrors[`city-${bundle.tempId}`]}
@@ -485,6 +498,7 @@ const useUserForm = ({
             value={bundle.street}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'street', e.target.value)}
             isInvalid={!!validationErrors[`street-${bundle.tempId}`]}
+            required
           />
           <Form.Control.Feedback type="invalid">
             {validationErrors[`street-${bundle.tempId}`]}
@@ -499,6 +513,7 @@ const useUserForm = ({
             value={bundle.building}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'building', e.target.value)}
             isInvalid={!!validationErrors[`building-${bundle.tempId}`]}
+            required
           />
           <Form.Control.Feedback type="invalid">
             {validationErrors[`building-${bundle.tempId}`]}
@@ -507,7 +522,7 @@ const useUserForm = ({
       </Col>
       <Col md={6}>
         <Form.Group controlId={`bundleFloor-${bundle.tempId}`}>
-          <Form.Label>Floor</Form.Label>
+          <Form.Label>Floor (Optional)</Form.Label>
           <Form.Control
             type="text"
             value={bundle.floor}
@@ -528,6 +543,7 @@ const useUserForm = ({
             value={bundle.googleMapsUrl}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'googleMapsUrl', e.target.value)}
             isInvalid={!!validationErrors[`googleMapsUrl-${bundle.tempId}`]}
+            placeholder="e.g., https://maps.google.com/..."
           />
           <Form.Control.Feedback type="invalid">
             {validationErrors[`googleMapsUrl-${bundle.tempId}`]}
@@ -535,7 +551,7 @@ const useUserForm = ({
         </Form.Group>
       </Col>
 
-      <Col md={12} className="d-flex justify-content-end align-items-center mt-2"> 
+      <Col md={12} className="d-flex justify-content-end align-items-center mt-2">
         <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
           Pick on Map / View Map
         </Button>
@@ -547,7 +563,6 @@ const useUserForm = ({
 
   return {
     apiError,
-    validationErrors,
     selectedBundles,
     isLoading,
     activeAccordionKey,
@@ -561,7 +576,6 @@ const useUserForm = ({
     setUserStatus,
     handleAddBundle,
     handleRemoveBundle,
-    handleBundleLocationChange,
     handleBundleStatusChange,
     toggleAccordion,
     confirmRemoveBundle,

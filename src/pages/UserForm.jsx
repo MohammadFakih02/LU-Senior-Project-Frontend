@@ -10,7 +10,8 @@ import BundleSubscriptionsSection from "../components/userform/BundleSubscriptio
 import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
-const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+// URL_REGEX_PATTERN is no longer needed here for validation if we relax it.
+// It will be handled within useUserForm for its specific heuristics.
 
 const UserForm = () => {
   const {
@@ -34,6 +35,7 @@ const UserForm = () => {
          lastName: '',
          email: '',
          phone: '',
+         landLine: '',
          address: '',
          city: '',
          street: '',
@@ -46,12 +48,13 @@ const UserForm = () => {
   const userInfoValidations = {
     firstName: { required: 'First name is required', maxLength: { value: 45, message: 'First name must be at most 45 characters' } },
     lastName: { required: 'Last name is required', maxLength: { value: 45, message: 'Last name must be at most 45 characters' } },
-    email: { 
-      required: 'Email is required', 
+    email: {
+      required: 'Email is required',
       maxLength: { value: 60, message: 'Email must be at most 60 characters' },
       pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Invalid email address' }
     },
     phone: { required: 'Phone number is required', maxLength: { value: 45, message: 'Phone number must be at most 45 characters' } },
+    landLine: { maxLength: { value: 45, message: 'Landline must be at most 45 characters' } },
   };
 
   const primaryLocationValidations = {
@@ -59,19 +62,18 @@ const UserForm = () => {
     city: { required: "City is required", maxLength: { value: 45, message: "City must be at most 45 characters" } },
     street: { required: "Street is required", maxLength: { value: 45, message: "Street must be at most 45 characters" } },
     building: { required: "Building is required", maxLength: { value: 45, message: "Building must be at most 45 characters" } },
-    floor: { maxLength: { value: 45, message: "Floor must be at most 45 characters" } }, 
-    googleMapsUrl: { 
-        pattern: { 
-            value: URL_REGEX_PATTERN, 
-            message: 'Invalid URL format' 
-        }, 
-        maxLength: { 
-            value: 255, 
-            message: "URL must be at most 255 characters" 
-        } 
-    }, 
+    floor: { maxLength: { value: 45, message: "Floor must be at most 45 characters" } },
+    googleMapsUrl: {
+        // Pattern validation removed to make it less specific on the frontend.
+        // Backend @URL annotation will handle the strict URL format validation.
+        maxLength: {
+            value: 255,
+            message: "Google Maps URL must be at most 255 characters"
+        }
+        // A placeholder or helper text in PrimaryLocationSection is recommended
+        // e.g., "Enter a valid web address like https://maps.google.com/..."
+    },
   };
-
 
   const {
     apiError,
@@ -96,7 +98,7 @@ const UserForm = () => {
     handleModalClose,
     renderBundleLocationFields,
     handlePrimaryLocationMapPick,
-  } = useUserForm({
+  } = useUserForm({ // URL_REGEX_PATTERN no longer passed as a prop
     isEditMode,
     userId,
     fetchUserById,
@@ -185,12 +187,12 @@ const UserForm = () => {
                 register={register}
                 errors={errors}
                 onMapPickClick={handlePrimaryLocationMapPick}
-                validations={primaryLocationValidations} 
+                validations={primaryLocationValidations} // Now uses the relaxed googleMapsUrl validation
               />
             </Row>
 
             <hr className="my-4" />
-            {(!bundles || bundles.length === 0) && (
+            {(!bundles || bundles.length === 0) && !bundlesLoading && (
               <Alert variant="info" className="mb-3">
                 No Bundles have been found.
               </Alert>
@@ -208,7 +210,7 @@ const UserForm = () => {
               renderBundleLocationFields={renderBundleLocationFields}
             />
 
-            <div className="d-flex justify-content-end">
+            <div className="d-flex justify-content-end mt-4">
               <Button
                 variant={isEditMode ? "warning" : "primary"}
                 type="submit"

@@ -24,8 +24,7 @@ const UserDetails = () => {
       try {
         const userData = await fetchUserById(routeUserId);
         setUser(userData);
-      } catch (err) {
-        setError(err.message || 'Failed to load user data');
+      } catch (err){        setError(err.message || 'Failed to load user data');
       } finally {
         setLoading(false);
       }
@@ -55,7 +54,7 @@ const UserDetails = () => {
           selectedBundleName: selectedBundleSubscription.bundle.name,
           selectedBundlePrice: selectedBundleSubscription.bundle.price,
           selectedUserName: `${user.firstName} ${user.lastName} (User ID: ${user.userId})`, // For display
-          selectedUserId: user.userId, // ***** ADDED THIS LINE *****
+          selectedUserId: user.userId,
         },
       });
     }
@@ -144,6 +143,9 @@ const UserDetails = () => {
               <div className="mb-3">
                 <strong>Phone:</strong> {user.phone || '-'}
               </div>
+              <div className="mb-3">
+                <strong>Landline:</strong> {user.landLine || '-'}
+              </div>
             </Col>
             <Col md={6}>
               <h4 className="mb-3">Primary Location</h4>
@@ -161,6 +163,16 @@ const UserDetails = () => {
               </div>
               <div className="mb-3">
                 <strong>Floor:</strong> {user.location?.floor || '-'}
+              </div>
+              <div className="mb-3">
+                <strong>Google Maps URL:</strong>{' '}
+                {user.location?.googleMapsUrl ? (
+                  <a href={user.location.googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                    {user.location.googleMapsUrl}
+                  </a>
+                ) : (
+                  '-'
+                )}
               </div>
             </Col>
           </Row>
@@ -237,6 +249,16 @@ const UserDetails = () => {
                         <div className="mb-2">
                           <strong>Floor:</strong> {bundleSubscription.bundleLocation?.floor || '-'}
                         </div>
+                        <div className="mb-2">
+                          <strong>Google Maps URL:</strong>{' '}
+                          {bundleSubscription.bundleLocation?.googleMapsUrl ? (
+                            <a href={bundleSubscription.bundleLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer">
+                              {bundleSubscription.bundleLocation.googleMapsUrl}
+                            </a>
+                          ) : (
+                            '-'
+                          )}
+                        </div>
                       </Col>
                     </Row>
                     {currentFlow === 'CP' && (
@@ -260,4 +282,4 @@ const UserDetails = () => {
   );
 };
 
-export default UserDetails; 
+export default UserDetails;
