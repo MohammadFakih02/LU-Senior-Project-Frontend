@@ -16,7 +16,8 @@ const useUserForm = ({
   setError,
   clearErrors,
   navigate,
-  getValues
+  getValues,
+  refreshPayments,
 }) => {
   const [apiError, setApiError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
@@ -59,20 +60,20 @@ const useUserForm = ({
         setUserStatus(userData.status || "ACTIVE");
 
         if (userData.bundles?.length > 0) {
-          setSelectedBundles(
-            userData.bundles.map((bundleSubscription, index) => ({
-              tempId: `${bundleSubscription.bundle.bundleId}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              bundleId: bundleSubscription.bundle.bundleId,
-              address: bundleSubscription.bundleLocation?.address || "",
-              city: bundleSubscription.bundleLocation?.city || "",
-              street: bundleSubscription.bundleLocation?.street || "",
-              building: bundleSubscription.bundleLocation?.building || "",
-              floor: bundleSubscription.bundleLocation?.floor || "",
-              googleMapsUrl: bundleSubscription.bundleLocation?.googleMapsUrl || "",
-              status: bundleSubscription.status || "ACTIVE",
-              subscriptionDate: bundleSubscription.subscriptionDate
-            }))
-          );
+          const mappedBundles = userData.bundles.map((bundleSubscription, index) => ({
+            isExisting: true,
+            tempId: `${bundleSubscription.bundle.bundleId}-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            bundleId: bundleSubscription.bundle.bundleId,
+            address: bundleSubscription.bundleLocation?.address || "",
+            city: bundleSubscription.bundleLocation?.city || "",
+            street: bundleSubscription.bundleLocation?.street || "",
+            building: bundleSubscription.bundleLocation?.building || "",
+            floor: bundleSubscription.bundleLocation?.floor || "",
+            googleMapsUrl: bundleSubscription.bundleLocation?.googleMapsUrl || "",
+            status: bundleSubscription.status || "ACTIVE",
+            subscriptionDate: bundleSubscription.subscriptionDate
+          }));
+          setSelectedBundles(mappedBundles);
         } else {
           setSelectedBundles([]);
         }
@@ -85,7 +86,7 @@ const useUserForm = ({
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setSelectedBundles, setApiError, showErrorToast]);
+  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setApiError, showErrorToast]);
 
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
@@ -129,9 +130,14 @@ const useUserForm = ({
         isValid = false;
       }
 
-      if (bundle.googleMapsUrl && bundle.googleMapsUrl.length > 255) {
-        bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "URL must be at most 255 characters";
-        isValid = false;
+      if (bundle.googleMapsUrl) {
+        if (bundle.googleMapsUrl.length > 255) {
+          bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "URL must be at most 255 characters";
+          isValid = false;
+        } else if (!URL_REGEX_PATTERN.test(bundle.googleMapsUrl)) {
+          bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "Invalid URL format";
+          isValid = false;
+        }
       }
     });
     setValidationErrors(bundleErrors);
@@ -162,7 +168,7 @@ const useUserForm = ({
          return;
     }
 
-    const userData = {
+    const userPayload = {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
@@ -195,10 +201,32 @@ const useUserForm = ({
     try {
       let response;
       if (isEditMode) {
-        response = await updateUser(userId, userData);
+        response = await updateUser(userId, userPayload);
       } else {
-        response = await createUser(userData);
+        response = await createUser(userPayload);
       }
+
+      let newSubscriptionAdded = false;
+      if (userPayload.bundleSubscriptions && userPayload.bundleSubscriptions.length > 0) {
+        if (!isEditMode) {
+          newSubscriptionAdded = true;
+        } else {
+          for (const sub of selectedBundles) {
+            if (!sub.isExisting) {
+              newSubscriptionAdded = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (newSubscriptionAdded) {
+        showInfoToast("Payment automatically created for new bundle subscription(s).");
+        if (refreshPayments) {
+          refreshPayments({ showToast: false });
+        }
+      }
+
       navigate(`/users/${response.userId || userId}`);
 
     } catch (error) {
@@ -263,9 +291,11 @@ const useUserForm = ({
     createUser,
     navigate,
     showErrorToast,
+    showInfoToast,
     setError,
     validateBundleLocations,
-    setValidationErrors
+    setValidationErrors,
+    refreshPayments,
   ]);
 
    const openGoogleMaps = useCallback((locationData, existingUrl) => {
@@ -330,6 +360,7 @@ const useUserForm = ({
     setTimeout(() => setClickedBundle(null), 300);
 
     const newBundle = {
+      isExisting: false,
       tempId: `${bundleId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       bundleId,
       address: "",
@@ -432,11 +463,7 @@ const useUserForm = ({
       fieldsToClear.forEach(field => {
           const primaryValue = primaryLocationValues[field];
           if (primaryValue) {
-              if (field === 'googleMapsUrl' && URL_REGEX_PATTERN.test(primaryValue)) {
-                delete newErrors[`${field}-${bundleTempId}`];
-              } else if (field !== 'googleMapsUrl') {
-                delete newErrors[`${field}-${bundleTempId}`];
-              }
+             delete newErrors[`${field}-${bundleTempId}`];
           } else if (field === 'googleMapsUrl' && !primaryValue) {
             delete newErrors[`${field}-${bundleTempId}`];
           }

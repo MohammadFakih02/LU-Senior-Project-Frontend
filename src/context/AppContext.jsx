@@ -63,7 +63,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const showInfoToast = (message) => {
-    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 2500 });
+    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 3500 }); // Adjusted autoClose for visibility
   };
 
   // Fetch initial app settings from backend

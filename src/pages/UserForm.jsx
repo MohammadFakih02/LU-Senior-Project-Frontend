@@ -10,6 +10,8 @@ import BundleSubscriptionsSection from "../components/userform/BundleSubscriptio
 import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
+const generalUrlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+
 const UserForm = () => {
   const {
     bundles,
@@ -19,14 +21,15 @@ const UserForm = () => {
     fetchUserById,
     showErrorToast,
     showWarningToast,
-    showInfoToast
+    showInfoToast,
+    refreshPayments,
   } = useContext(AppContext);
 
   const { userId } = useParams();
   const navigate = useNavigate();
   const isEditMode = !!userId;
 
-  const { register, handleSubmit, reset, formState: { errors }, setError, clearErrors, getValues } = useForm({
+  const { register, handleSubmit, reset, formState: { errors }, setError, clearErrors, getValues, formState } = useForm({
      defaultValues: {
          firstName: '',
          lastName: '',
@@ -64,7 +67,11 @@ const UserForm = () => {
         maxLength: {
             value: 255,
             message: "Google Maps URL must be at most 255 characters"
-        }
+        },
+        pattern: {
+            value: generalUrlPattern,
+            message: "Invalid URL format"
+        },
     },
   };
 
@@ -104,7 +111,8 @@ const UserForm = () => {
     setError,
     clearErrors,
     navigate,
-    getValues
+    getValues,
+    refreshPayments,
   });
 
   if (isLoading || bundlesLoading) {
@@ -165,7 +173,18 @@ const UserForm = () => {
             </Alert>
           )}
 
-          <Form onSubmit={handleSubmit(prepareSubmit)}>
+          <Form onSubmit={handleSubmit(
+            (data) => { // onValid
+              console.log("RHF: Form is valid. Data:", data);
+              console.log("RHF: formState.errors at validation success:", formState.errors); 
+              prepareSubmit(data);
+            },
+            (errorPayload) => { // onInvalid
+              console.log("RHF: Form is invalid. Errors from RHF:", errorPayload);
+              console.log("RHF: formState.errors at validation failure:", formState.errors); 
+              showErrorToast("Please correct the highlighted form errors.");
+            }
+          )}>
             <Row className="g-4">
               <UserInfoSection
                 register={register}

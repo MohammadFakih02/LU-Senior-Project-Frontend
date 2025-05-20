@@ -6,10 +6,8 @@ const BundleSubscriptionsSection = ({
   selectedBundles,
   clickedBundle,
   activeAccordionKey,
-  // validationErrors is used by renderBundleLocationFields, passed implicitly
   handleAddBundle,
   confirmRemoveBundle,
-  // handleBundleLocationChange is used by renderBundleLocationFields, passed implicitly
   handleBundleStatusChange,
   toggleAccordion,
   renderBundleLocationFields
