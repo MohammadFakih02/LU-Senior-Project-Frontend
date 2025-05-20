@@ -10,7 +10,7 @@ const AppContext = createContext();
 
 const defaultSettings = {
   autoCreateMonthly: false,
-  autoCreateOnUserCreation: false, // This setting remains client-side (localStorage)
+  autoCreateOnUserCreation: false, // This setting will now be synced with the backend
   autoDeletePaymentTime: 'never',  // 'never', '30', '60', '90'
   autoDisableBundleOnNoPayment: false,
 };
@@ -63,7 +63,7 @@ export const AppProvider = ({ children }) => {
   };
 
   const showInfoToast = (message) => {
-    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 3500 }); // Adjusted autoClose for visibility
+    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 3500 });
   };
 
   // Fetch initial app settings from backend
@@ -76,27 +76,32 @@ export const AppProvider = ({ children }) => {
           recurringPaymentsRes,
           overdueProcessingRes,
           retentionDaysRes,
+          autoCreateInitialPaymentRes, // Added for autoCreateOnUserCreation
         ] = await Promise.all([
           axios.get(`${CONFIG_API_BASE_URL}/recurring-payments`),
           axios.get(`${CONFIG_API_BASE_URL}/overdue-processing`),
           axios.get(`${CONFIG_API_BASE_URL}/retention-days`),
+          axios.get(`${CONFIG_API_BASE_URL}/initial-payment/auto-create`), // New endpoint
         ]);
 
         const fetchedBackendSettings = {
           autoCreateMonthly: recurringPaymentsRes.data,
           autoDisableBundleOnNoPayment: overdueProcessingRes.data,
           autoDeletePaymentTime: mapRetentionDaysFromBackend(retentionDaysRes.data),
+          autoCreateOnUserCreation: autoCreateInitialPaymentRes.data, // Mapped from backend
         };
         
         setAppSettings(prevSettings => {
+          // Merge defaults, then localStorage (already in prevSettings), then backend settings
           const newSettings = {
-            ...prevSettings, // Keeps client-only settings like autoCreateOnUserCreation
-            ...fetchedBackendSettings, // Overwrites with backend-sourced settings
+            ...defaultSettings, // Start with defaults
+            ...prevSettings,    // Overlay with any localStorage values (if any other client-side settings exist)
+            ...fetchedBackendSettings, // Overlay with backend-sourced settings
           };
           localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
           return newSettings;
         });
-        // showInfoToast("Application settings loaded from server."); // Optional: can be noisy
+        // showInfoToast("Application settings loaded from server.");
       } catch (err) {
         console.error("Failed to fetch app settings from backend", err);
         setAppSettingsError("Failed to load application settings from server. Using local/default settings.");
@@ -111,16 +116,20 @@ export const AppProvider = ({ children }) => {
 
 
   const updateAppSettings = async (newSettings) => {
+    // Current settings from the state, which should be up-to-date from backend/localStorage
     const currentBackendSettings = {
       autoCreateMonthly: appSettings.autoCreateMonthly,
       autoDisableBundleOnNoPayment: appSettings.autoDisableBundleOnNoPayment,
       autoDeletePaymentTime: mapRetentionDaysToBackend(appSettings.autoDeletePaymentTime),
+      autoCreateOnUserCreation: appSettings.autoCreateOnUserCreation, // Added
     };
 
+    // New settings potentially being saved
     const newBackendSettings = {
       autoCreateMonthly: newSettings.autoCreateMonthly,
       autoDisableBundleOnNoPayment: newSettings.autoDisableBundleOnNoPayment,
       autoDeletePaymentTime: mapRetentionDaysToBackend(newSettings.autoDeletePaymentTime),
+      autoCreateOnUserCreation: newSettings.autoCreateOnUserCreation, // Added
     };
     
     const backendUpdatePromises = [];
@@ -161,25 +170,35 @@ export const AppProvider = ({ children }) => {
       );
     }
 
+    // Added for autoCreateOnUserCreation
+    if (newBackendSettings.autoCreateOnUserCreation !== currentBackendSettings.autoCreateOnUserCreation) {
+      backendUpdatePromises.push(
+        axios.put(`${CONFIG_API_BASE_URL}/initial-payment/auto-create/${newBackendSettings.autoCreateOnUserCreation}`)
+          .catch(err => {
+            const message = `Failed to update 'Auto Create on User Creation': ${err.response?.data?.message || err.message}`;
+            console.error(message, err);
+            showErrorToast(message);
+            throw new Error(message);
+          })
+      );
+    }
+
     try {
       if (backendUpdatePromises.length > 0) {
         await Promise.all(backendUpdatePromises);
       }
       
       // Update local state and localStorage with the full newSettings object
-      // This includes client-only settings like autoCreateOnUserCreation
+      // This includes all settings, whether client-only or backend-synced
       setAppSettings(currentFullSettings => {
         const updatedFullSettings = { ...currentFullSettings, ...newSettings };
         localStorage.setItem('appDashboardSettings', JSON.stringify(updatedFullSettings));
         return updatedFullSettings;
       });
-      return true; // Indicate success for LayoutSidebar to show its general success toast
+      return true; // Indicate success
 
     } catch (error) {
-      // Errors from Promise.all are already handled (logged and toasted) by individual catch blocks.
-      // This catch block is for the Promise.all rejection itself.
       console.error("One or more settings failed to update on the backend.", error.message);
-      // Re-throw to be caught by LayoutSidebar's handleSaveSettings
       throw new Error("Some settings could not be saved to the server. Check individual error messages.");
     }
   };
