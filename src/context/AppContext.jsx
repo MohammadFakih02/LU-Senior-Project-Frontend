@@ -3,7 +3,22 @@ import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+const API_BASE_URL = "http://localhost:8080"; // Main API base
+const CONFIG_API_BASE_URL = `${API_BASE_URL}/api/config`; // Config API base
+
 const AppContext = createContext();
+
+const defaultSettings = {
+  autoCreateMonthly: false,
+  autoCreateOnUserCreation: false, // This setting remains client-side (localStorage)
+  autoDeletePaymentTime: 'never',  // 'never', '30', '60', '90'
+  autoDisableBundleOnNoPayment: false,
+};
+
+// Helper mappers for retention days
+const mapRetentionDaysToBackend = (value) => (value === 'never' ? 0 : parseInt(value, 10));
+const mapRetentionDaysFromBackend = (value) => (value === 0 || value === null || typeof value === 'undefined' ? 'never' : String(value));
+
 
 export const AppProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
@@ -18,40 +33,20 @@ export const AppProvider = ({ children }) => {
   const [bundlesLoading, setBundlesLoading] = useState(true);
   const [bundlesError, setBundlesError] = useState(null);
 
+  const [appSettingsLoading, setAppSettingsLoading] = useState(true);
+  const [appSettingsError, setAppSettingsError] = useState(null);
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const savedSettings = localStorage.getItem('appDashboardSettings');
-      const defaultSettings = {
-        autoCreateMonthly: false,
-        autoCreateOnUserCreation: false,
-        autoDeletePaymentTime: 'never',
-        autoDisableBundleOnNoPayment: false, 
-      };
       return savedSettings ? { ...defaultSettings, ...JSON.parse(savedSettings) } : defaultSettings;
     } catch (error) {
       console.error("Failed to parse settings from localStorage", error);
-      return {
-        autoCreateMonthly: false,
-        autoCreateOnUserCreation: false,
-        autoDeletePaymentTime: 'never',
-        autoDisableBundleOnNoPayment: false, 
-      };
+      return defaultSettings;
     }
   });
 
-  const updateAppSettings = (newSettings) => {
-    setAppSettings(newSettings);
-    try {
-      localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
-    } catch (error)
-    {
-      console.error("Failed to save settings to localStorage", error);
-    }
-  };
-
-
+  // Toast functions
   useEffect(() => {
-    // Optional: Dismiss all toasts on component unmount or initial setup
     return () => toast.dismiss();
   }, []);
 
@@ -71,11 +66,130 @@ export const AppProvider = ({ children }) => {
     toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 2500 });
   };
 
+  // Fetch initial app settings from backend
+  useEffect(() => {
+    const fetchAppSettings = async () => {
+      setAppSettingsLoading(true);
+      setAppSettingsError(null);
+      try {
+        const [
+          recurringPaymentsRes,
+          overdueProcessingRes,
+          retentionDaysRes,
+        ] = await Promise.all([
+          axios.get(`${CONFIG_API_BASE_URL}/recurring-payments`),
+          axios.get(`${CONFIG_API_BASE_URL}/overdue-processing`),
+          axios.get(`${CONFIG_API_BASE_URL}/retention-days`),
+        ]);
+
+        const fetchedBackendSettings = {
+          autoCreateMonthly: recurringPaymentsRes.data,
+          autoDisableBundleOnNoPayment: overdueProcessingRes.data,
+          autoDeletePaymentTime: mapRetentionDaysFromBackend(retentionDaysRes.data),
+        };
+        
+        setAppSettings(prevSettings => {
+          const newSettings = {
+            ...prevSettings, // Keeps client-only settings like autoCreateOnUserCreation
+            ...fetchedBackendSettings, // Overwrites with backend-sourced settings
+          };
+          localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
+          return newSettings;
+        });
+        // showInfoToast("Application settings loaded from server."); // Optional: can be noisy
+      } catch (err) {
+        console.error("Failed to fetch app settings from backend", err);
+        setAppSettingsError("Failed to load application settings from server. Using local/default settings.");
+        showErrorToast("Failed to load app settings. Using cached or default values.");
+      } finally {
+        setAppSettingsLoading(false);
+      }
+    };
+
+    fetchAppSettings();
+  }, []);
+
+
+  const updateAppSettings = async (newSettings) => {
+    const currentBackendSettings = {
+      autoCreateMonthly: appSettings.autoCreateMonthly,
+      autoDisableBundleOnNoPayment: appSettings.autoDisableBundleOnNoPayment,
+      autoDeletePaymentTime: mapRetentionDaysToBackend(appSettings.autoDeletePaymentTime),
+    };
+
+    const newBackendSettings = {
+      autoCreateMonthly: newSettings.autoCreateMonthly,
+      autoDisableBundleOnNoPayment: newSettings.autoDisableBundleOnNoPayment,
+      autoDeletePaymentTime: mapRetentionDaysToBackend(newSettings.autoDeletePaymentTime),
+    };
+    
+    const backendUpdatePromises = [];
+
+    if (newBackendSettings.autoCreateMonthly !== currentBackendSettings.autoCreateMonthly) {
+      backendUpdatePromises.push(
+        axios.put(`${CONFIG_API_BASE_URL}/recurring-payments/${newBackendSettings.autoCreateMonthly}`)
+          .catch(err => {
+            const message = `Failed to update 'Auto Create Monthly': ${err.response?.data?.message || err.message}`;
+            console.error(message, err);
+            showErrorToast(message);
+            throw new Error(message);
+          })
+      );
+    }
+
+    if (newBackendSettings.autoDisableBundleOnNoPayment !== currentBackendSettings.autoDisableBundleOnNoPayment) {
+      backendUpdatePromises.push(
+        axios.put(`${CONFIG_API_BASE_URL}/overdue-processing/${newBackendSettings.autoDisableBundleOnNoPayment}`)
+          .catch(err => {
+            const message = `Failed to update 'Auto Disable Bundle': ${err.response?.data?.message || err.message}`;
+            console.error(message, err);
+            showErrorToast(message);
+            throw new Error(message);
+          })
+      );
+    }
+    
+    if (newBackendSettings.autoDeletePaymentTime !== currentBackendSettings.autoDeletePaymentTime) {
+      backendUpdatePromises.push(
+        axios.put(`${CONFIG_API_BASE_URL}/retention-days/${newBackendSettings.autoDeletePaymentTime}`)
+          .catch(err => {
+            const message = `Failed to update 'Auto Delete Payment Time': ${err.response?.data?.message || err.message}`;
+            console.error(message, err);
+            showErrorToast(message);
+            throw new Error(message);
+          })
+      );
+    }
+
+    try {
+      if (backendUpdatePromises.length > 0) {
+        await Promise.all(backendUpdatePromises);
+      }
+      
+      // Update local state and localStorage with the full newSettings object
+      // This includes client-only settings like autoCreateOnUserCreation
+      setAppSettings(currentFullSettings => {
+        const updatedFullSettings = { ...currentFullSettings, ...newSettings };
+        localStorage.setItem('appDashboardSettings', JSON.stringify(updatedFullSettings));
+        return updatedFullSettings;
+      });
+      return true; // Indicate success for LayoutSidebar to show its general success toast
+
+    } catch (error) {
+      // Errors from Promise.all are already handled (logged and toasted) by individual catch blocks.
+      // This catch block is for the Promise.all rejection itself.
+      console.error("One or more settings failed to update on the backend.", error.message);
+      // Re-throw to be caught by LayoutSidebar's handleSaveSettings
+      throw new Error("Some settings could not be saved to the server. Check individual error messages.");
+    }
+  };
+
+  // Data fetching useEffects (Users, Payments, Bundles)
   useEffect(() => {
     const fetchUsers = async () => {
       setUsersLoading(true);
       try {
-        const response = await axios.get("http://localhost:8080/api/users");
+        const response = await axios.get(`${API_BASE_URL}/api/users`);
         setUsers(response.data);
         setUsersError(null);
       } catch (err) {
@@ -85,8 +199,7 @@ export const AppProvider = ({ children }) => {
       } finally {
         setUsersLoading(false);
       }
-    };
-    
+    };    
     fetchUsers();
   }, []);
 
@@ -94,7 +207,7 @@ export const AppProvider = ({ children }) => {
     const fetchPayments = async () => {
       setPaymentsLoading(true);
       try {
-        const response = await axios.get("http://localhost:8080/api/payments");
+        const response = await axios.get(`${API_BASE_URL}/api/payments`);
         setPayments(response.data);
         setPaymentsError(null);
       } catch (err) {
@@ -104,8 +217,7 @@ export const AppProvider = ({ children }) => {
       } finally {
         setPaymentsLoading(false);
       }
-    };
-    
+    };    
     fetchPayments();
   }, []);
 
@@ -113,7 +225,7 @@ export const AppProvider = ({ children }) => {
     const fetchBundles = async () => {
       setBundlesLoading(true);
       try {
-        const response = await axios.get("http://localhost:8080/api/bundles");
+        const response = await axios.get(`${API_BASE_URL}/api/bundles`);
         setBundles(response.data);
         setBundlesError(null);
       } catch (err) {
@@ -123,15 +235,15 @@ export const AppProvider = ({ children }) => {
       } finally {
         setBundlesLoading(false);
       }
-    };
-    
+    };    
     fetchBundles();
   }, []);
 
+  // Refresh functions
   const refreshUsers = async (options = { showToast: true }) => {
     setUsersLoading(true);
     try {
-      const response = await axios.get("http://localhost:8080/api/users");
+      const response = await axios.get(`${API_BASE_URL}/api/users`);
       setUsers(response.data);
       setUsersError(null);
       if (options.showToast) {
@@ -143,7 +255,7 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh users');
       }
       console.error('Refresh Users API Error:', err.response?.data || err.message);
-      throw err; // Re-throw the error
+      throw err;
     } finally {
       setUsersLoading(false);
     }
@@ -152,7 +264,7 @@ export const AppProvider = ({ children }) => {
   const refreshPayments = async (options = { showToast: true }) => {
     setPaymentsLoading(true);
     try {
-      const response = await axios.get("http://localhost:8080/api/payments");
+      const response = await axios.get(`${API_BASE_URL}/api/payments`);
       setPayments(response.data);
       setPaymentsError(null);
       if (options.showToast) {
@@ -164,7 +276,7 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh payments');
       }
       console.error('Refresh Payments API Error:', err.response?.data || err.message);
-      throw err; // Re-throw the error
+      throw err;
     } finally {
       setPaymentsLoading(false);
     }
@@ -173,7 +285,7 @@ export const AppProvider = ({ children }) => {
   const refreshBundles = async (options = { showToast: true }) => {
     setBundlesLoading(true);
     try {
-      const response = await axios.get("http://localhost:8080/api/bundles");
+      const response = await axios.get(`${API_BASE_URL}/api/bundles`);
       setBundles(response.data);
       setBundlesError(null);
       if (options.showToast) {
@@ -185,15 +297,16 @@ export const AppProvider = ({ children }) => {
           showErrorToast('Failed to refresh bundles');
       }
       console.error('Refresh Bundles API Error:', err.response?.data || err.message);
-      throw err; // Re-throw the error
+      throw err;
     } finally {
       setBundlesLoading(false);
     }
   };
 
+  // CRUD operations
   const createBundle = async (bundleData) => {
     try {
-      const response = await axios.post("http://localhost:8080/api/bundles", bundleData);
+      const response = await axios.post(`${API_BASE_URL}/api/bundles`, bundleData);
       await refreshBundles({ showToast: false });
       showSuccessToast('Bundle created successfully');
       return response.data;
@@ -207,7 +320,7 @@ export const AppProvider = ({ children }) => {
   
   const updateBundle = async (bundleId, bundleData) => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/bundles/${bundleId}`, bundleData);
+      const response = await axios.put(`${API_BASE_URL}/api/bundles/${bundleId}`, bundleData);
       await refreshBundles({ showToast: false });
       showSuccessToast('Bundle updated successfully');
       return response.data;
@@ -221,7 +334,7 @@ export const AppProvider = ({ children }) => {
 
   const createUser = async (userData) => {
     try {
-      const response = await axios.post("http://localhost:8080/api/users", userData);
+      const response = await axios.post(`${API_BASE_URL}/api/users`, userData);
       await refreshUsers({ showToast: false });
       showSuccessToast('User created successfully');
       return response.data;
@@ -235,7 +348,7 @@ export const AppProvider = ({ children }) => {
 
   const updateUser = async (userId, userData) => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/users/${userId}`, userData);
+      const response = await axios.put(`${API_BASE_URL}/api/users/${userId}`, userData);
       await refreshUsers({ showToast: false });
       showSuccessToast('User updated successfully');
       return response.data;
@@ -249,7 +362,7 @@ export const AppProvider = ({ children }) => {
 
   const fetchUserById = async (userId) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/users/${userId}`);
+      const response = await axios.get(`${API_BASE_URL}/api/users/${userId}`);
       return response.data;
     } catch (error) {
       const errorMessage = error.response?.data?.message || `Failed to fetch user with ID ${userId}`;
@@ -260,7 +373,7 @@ export const AppProvider = ({ children }) => {
 
   const updatePaymentStatus = async (paymentId, paymentData) => {
     try {
-      const response = await axios.post(`http://localhost:8080/api/payments/${paymentId}/process`, paymentData);
+      const response = await axios.post(`${API_BASE_URL}/api/payments/${paymentId}/process`, paymentData);
       await refreshPayments({ showToast: false });
       showSuccessToast('Payment status updated successfully');
       return response.data;
@@ -274,7 +387,7 @@ export const AppProvider = ({ children }) => {
 
   const updatePayment = async (paymentId, paymentData) => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/payments/${paymentId}`, paymentData);
+      const response = await axios.put(`${API_BASE_URL}/api/payments/${paymentId}`, paymentData);
       await refreshPayments({ showToast: false });
       showSuccessToast('Payment updated successfully');
       return response.data;
@@ -288,7 +401,7 @@ export const AppProvider = ({ children }) => {
 
   const createPayment = async (paymentData) => {
     try {
-      const response = await axios.post("http://localhost:8080/api/payments", paymentData);
+      const response = await axios.post(`${API_BASE_URL}/api/payments`, paymentData);
       await refreshPayments({ showToast: false });
       showSuccessToast('Payment created successfully');
       return response.data;
@@ -302,8 +415,8 @@ export const AppProvider = ({ children }) => {
 
   const deletePayment = async (paymentId) => {
     try {
-      await axios.delete(`http://localhost:8080/api/payments/${paymentId}`);
-      await refreshPayments({ showToast: false }); // Refresh payments list after deletion
+      await axios.delete(`${API_BASE_URL}/api/payments/${paymentId}`);
+      await refreshPayments({ showToast: false });
       showSuccessToast('Payment deleted successfully');
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Failed to delete payment';
@@ -346,6 +459,8 @@ export const AppProvider = ({ children }) => {
 
       appSettings,
       updateAppSettings,
+      appSettingsLoading,
+      appSettingsError,
     }}>
       {children}
     </AppContext.Provider>

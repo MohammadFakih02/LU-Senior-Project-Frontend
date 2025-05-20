@@ -1,6 +1,6 @@
 // LayoutSidebar.jsx
 import { useState, useEffect, useContext } from "react";
-import { Col, Container, Row, Nav, Stack, Button, Form, Alert } from "react-bootstrap";
+import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner } from "react-bootstrap"; // Added Spinner
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { 
   PeopleFill, 
@@ -26,8 +26,10 @@ const LayoutSidebar = () => {
   const { 
     appSettings, 
     updateAppSettings, 
+    appSettingsLoading, // Added for settings form
+    // appSettingsError, // Available if you want to display a specific error message for settings
     showSuccessToast: contextShowSuccessToast,
-    showErrorToast: contextShowErrorToast, // Added showErrorToast from context
+    showErrorToast: contextShowErrorToast,
     usersError,
     paymentsError,
     bundlesError,
@@ -38,6 +40,7 @@ const LayoutSidebar = () => {
 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
+  const [isSavingSettings, setIsSavingSettings] = useState(false); // For save button loading state
 
   const hasMultipleErrors = [usersError, paymentsError, bundlesError].filter(Boolean).length >= 2;
 
@@ -56,6 +59,7 @@ const LayoutSidebar = () => {
   };
 
   useEffect(() => {
+    // Update stagedSettings when appSettings from context change (e.g., after initial fetch)
     setStagedSettings({ ...appSettings });
   }, [appSettings]);
 
@@ -99,10 +103,21 @@ const LayoutSidebar = () => {
     setShowSettingsPanel(false);
   };
 
-  const handleSaveSettings = () => {
-    updateAppSettings(stagedSettings); 
-    setShowSettingsPanel(false);
-    contextShowSuccessToast('Settings saved successfully!');
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      await updateAppSettings(stagedSettings); 
+      setShowSettingsPanel(false);
+      contextShowSuccessToast('Settings saved successfully!');
+    } catch (error) {
+      // Errors are already toasted by updateAppSettings in AppContext
+      // contextShowErrorToast(error.message || 'Failed to save settings. Please check individual messages.');
+      console.error("Error saving settings from LayoutSidebar:", error);
+      // Optionally, keep the panel open on error, or close it:
+      // setShowSettingsPanel(false); // Or keep it open for user to retry
+    } finally {
+      setIsSavingSettings(false);
+    }
   };
 
   const handleSettingChange = (e) => {
@@ -206,62 +221,83 @@ const LayoutSidebar = () => {
                     </Button>
                   </div>
                   
-                  <Form className="settings-form">
-                    <Form.Group className="mb-2" controlId="autoCreateMonthly">
-                      <Form.Check
-                        type="switch"
-                        name="autoCreateMonthly"
-                        label="Auto Create Payments monthly"
-                        checked={stagedSettings.autoCreateMonthly || false}
-                        onChange={handleSettingChange}
-                        className="text-white"
-                      />
-                    </Form.Group>
+                  {appSettingsLoading ? (
+                    <div className="text-center p-3">
+                      <Spinner animation="border" variant="light" size="sm" />
+                      <p className="small mt-2 mb-0 text-white-50">Loading settings...</p>
+                    </div>
+                  ) : (
+                    <Form className="settings-form">
+                      <Form.Group className="mb-2" controlId="autoCreateMonthly">
+                        <Form.Check
+                          type="switch"
+                          name="autoCreateMonthly"
+                          label="Auto Create Payments monthly"
+                          checked={stagedSettings.autoCreateMonthly || false}
+                          onChange={handleSettingChange}
+                          className="text-white"
+                        />
+                      </Form.Group>
 
-                    <Form.Group className="mb-2" controlId="autoCreateOnUserCreation">
-                      <Form.Check
-                        type="switch"
-                        name="autoCreateOnUserCreation"
-                        label="Auto create payments on user creation"
-                        checked={stagedSettings.autoCreateOnUserCreation || false}
-                        onChange={handleSettingChange}
-                        className="text-white"
-                      />
-                    </Form.Group>
+                      <Form.Group className="mb-2" controlId="autoCreateOnUserCreation">
+                        <Form.Check
+                          type="switch"
+                          name="autoCreateOnUserCreation"
+                          label="Auto create payments on user creation"
+                          checked={stagedSettings.autoCreateOnUserCreation || false}
+                          onChange={handleSettingChange}
+                          className="text-white"
+                        />
+                      </Form.Group>
 
-                    <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment">
-                      <Form.Check
-                        type="switch"
-                        name="autoDisableBundleOnNoPayment"
-                        label="Auto disable bundle if no payment"
-                        checked={stagedSettings.autoDisableBundleOnNoPayment || false}
-                        onChange={handleSettingChange}
-                        className="text-white"
-                      />
-                    </Form.Group>
+                      <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment">
+                        <Form.Check
+                          type="switch"
+                          name="autoDisableBundleOnNoPayment"
+                          label="Auto disable bundle if no payment"
+                          checked={stagedSettings.autoDisableBundleOnNoPayment || false}
+                          onChange={handleSettingChange}
+                          className="text-white"
+                        />
+                      </Form.Group>
 
-                    <Form.Group className="mb-3" controlId="autoDeletePaymentTime">
-                      <Form.Label className="text-white small mb-1">Auto delete payments after</Form.Label>
-                      <Form.Select
-                        name="autoDeletePaymentTime"
-                        aria-label="Auto delete payments after"
-                        value={stagedSettings.autoDeletePaymentTime || 'never'}
-                        onChange={handleSettingChange}
-                        size="sm"
-                      >
-                        <option value="30">30 days</option>
-                        <option value="60">60 days</option>
-                        <option value="90">90 days</option>
-                        <option value="never">Never</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Form>
+                      <Form.Group className="mb-3" controlId="autoDeletePaymentTime">
+                        <Form.Label className="text-white small mb-1">Auto delete payments after</Form.Label>
+                        <Form.Select
+                          name="autoDeletePaymentTime"
+                          aria-label="Auto delete payments after"
+                          value={stagedSettings.autoDeletePaymentTime || 'never'}
+                          onChange={handleSettingChange}
+                          size="sm"
+                        >
+                          <option value="30">30 days</option>
+                          <option value="60">60 days</option>
+                          <option value="90">90 days</option>
+                          <option value="never">Never</option>
+                        </Form.Select>
+                      </Form.Group>
+                    </Form>
+                  )}
                   
-                  <div className="d-flex justify-content-end mt-3">
-                    <Button variant="primary" size="sm" onClick={handleSaveSettings}>
-                      Save Changes
-                    </Button>
-                  </div>
+                  {!appSettingsLoading && (
+                    <div className="d-flex justify-content-end mt-3">
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        onClick={handleSaveSettings}
+                        disabled={isSavingSettings}
+                      >
+                        {isSavingSettings ? (
+                          <>
+                            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                            <span className="visually-hidden">Saving...</span>
+                          </>
+                        ) : (
+                          "Save Changes"
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div> 
@@ -276,7 +312,7 @@ const LayoutSidebar = () => {
                   tabIndex={0}
                   onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenSettingsPanel()}
                   aria-expanded={showSettingsPanel}
-                  aria-controls="settings-panel-content" 
+                  aria-controls="settings-panel-content" // Assuming this refers to the content within settings-panel
                 >
                   <GearFill className="fs-5" />
                   <span>Settings</span>
@@ -335,7 +371,7 @@ const LayoutSidebar = () => {
           </div>
         </Col>
       </Row>
-      <ToastContainer />
+      <ToastContainer autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </Container>
   );
 };
