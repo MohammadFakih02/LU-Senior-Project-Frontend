@@ -41,7 +41,7 @@ const BundleForm = () => {
           ...data,
           price: data.price, 
           dataCap: (data.dataCap === undefined || data.dataCap === null || isNaN(data.dataCap)) ? 0 : data.dataCap,
-          speed: data.speed, // RHF validation will ensure this is a valid positive number
+          speed: data.speed, 
         };
 
         if (isEditMode) {
@@ -124,8 +124,8 @@ const BundleForm = () => {
                     type="text"
                     {...register('name', { 
                         required: 'Name is required',
-                        minLength: { value: 3, message: "Name must be at least 3 characters" },
-                        maxLength: { value: 100, message: "Name must be at most 100 characters" }
+                        minLength: { value: 1, message: "Name is required" }, 
+                        maxLength: { value: 45, message: "Name must be at most 45 characters" }
                     })}
                     isInvalid={!!errors.name}
                     className="rounded-1"
@@ -141,6 +141,7 @@ const BundleForm = () => {
                     as="textarea"
                     rows={3}
                     {...register('description', {
+                        required: 'Description is required',
                         maxLength: { value: 500, message: "Description must be at most 500 characters"}
                     })}
                     isInvalid={!!errors.description}
@@ -178,7 +179,7 @@ const BundleForm = () => {
                     {...register('price', { 
                         required: 'Price is required',
                         valueAsNumber: true,
-                        min: { value: 0, message: 'Price must be a non-negative number' }
+                        validate: value => value > 0 || 'Price must be greater than 0'
                     })}
                     isInvalid={!!errors.price}
                     className="rounded-1"

@@ -1,14 +1,14 @@
 import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { useState, useEffect, useContext } from 'react';
-import AppContext from '../context/AppContext'; // Assuming AppContext is in ../../context
-import { Whatsapp } from 'react-bootstrap-icons'; // Import Whatsapp icon
-import { generateWhatsAppLink } from '../utils/whatsappHelper'; // Corrected import path
+import AppContext from '../context/AppContext'; 
+import { Whatsapp } from 'react-bootstrap-icons'; 
+import { generateWhatsAppLink } from '../utils/whatsappHelper'; 
 
 
 const CreatePaymentModal = ({
   show,
   onHide,
-  selectionData, // Contains { userBundleId, bundleName, bundlePrice, userName (which is "Name (User ID: X)"), userId }
+  selectionData, 
   paymentMethods = [],
   onConfirmCreate,
   isLoading
@@ -43,20 +43,36 @@ const CreatePaymentModal = ({
   const handleSubmit = () => {
     if (!selectionData?.userBundleId) {
       console.error("UserBundleID missing in CreatePaymentModal", selectionData);
-      alert("Required UserBundleID is missing to create the payment.");
+      showErrorToast("Required UserBundleID is missing to create the payment.");
       return;
     }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
     if (!dueDate) {
-        alert("Due Date is required.");
-        return;
+      showErrorToast("Due Date is required.");
+      return;
     }
+    const parsedDueDate = new Date(dueDate + "T00:00:00Z"); 
+    if (parsedDueDate < today) {
+      showErrorToast("Due Date must be in the present or future.");
+      return;
+    }
+
     if (!selectedMethod) {
-        alert("Payment Method is required.");
-        return;
+      showErrorToast("Payment Method is required."); 
+      return;
+    }
+    
+    const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount < 0.01) {
+      showErrorToast("Amount must be a number greater than 0.");
+      return;
     }
 
     const newPaymentData = {
-      amount: Number(amount),
+      amount: numericAmount,
       paymentDate: paymentDate ? new Date(paymentDate + "T00:00:00Z").toISOString() : null,
       dueDate: dueDate ? new Date(dueDate + "T00:00:00Z").toISOString() : null,
       paymentMethod: selectedMethod,
@@ -81,14 +97,13 @@ const CreatePaymentModal = ({
     try {
         const user = await fetchUserById(selectionData.userId);
         if (user && user.phone) {
-            // Extract only the name part from selectionData.userName for the message
             const nameForMessage = selectionData.userName ? selectionData.userName.split(' (User ID:')[0].trim() : 'customer';
 
             const paymentDetailsForMsg = {
                 amount: amount,
                 dueDate: dueDate,
-                bundleName: selectionData.bundleName, // This is already just the bundle name
-                userName: nameForMessage, // Use the cleaned name
+                bundleName: selectionData.bundleName, 
+                userName: nameForMessage, 
             };
             const link = generateWhatsAppLink(
                 user.phone,
@@ -111,9 +126,7 @@ const CreatePaymentModal = ({
     }
   };
 
-  // For display in the modal, show only the name part of selectionData.userName
   const userNameDisplay = selectionData?.userName ? selectionData.userName.split(' (User ID:')[0].trim() : 'N/A';
-  // For display, show only selectionData.bundleName
   const bundleNameDisplay = selectionData?.bundleName || 'N/A';
 
 
@@ -132,7 +145,7 @@ const CreatePaymentModal = ({
           <Form.Label>User</Form.Label>
           <Form.Control
             type="text"
-            value={userNameDisplay} // Shows only name
+            value={userNameDisplay} 
             disabled
           />
         </Form.Group>
@@ -141,7 +154,7 @@ const CreatePaymentModal = ({
           <Form.Label>Selected User Bundle</Form.Label>
           <Form.Control
             type="text"
-            value={bundleNameDisplay} // Shows only bundle name
+            value={bundleNameDisplay} 
             disabled
           />
         </Form.Group>

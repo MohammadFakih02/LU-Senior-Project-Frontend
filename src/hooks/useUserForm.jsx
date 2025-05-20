@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Row, Col, Form, Button } from "react-bootstrap";
 
+
+const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+
 const useUserForm = ({
   isEditMode,
   userId,
@@ -28,6 +31,8 @@ const useUserForm = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [formData, setFormData] = useState(null);
+
+  // URL_REGEX_PATTERN is now defined outside
 
   useEffect(() => {
     if (!isEditMode || !userId) {
@@ -90,13 +95,47 @@ const useUserForm = ({
       if (!bundle.address) {
         bundleErrors[`address-${bundle.tempId}`] = "Address is required";
         isValid = false;
+      } else if (bundle.address.length > 255) {
+        bundleErrors[`address-${bundle.tempId}`] = "Address must be at most 255 characters";
+        isValid = false;
       }
+
       if (!bundle.city) {
         bundleErrors[`city-${bundle.tempId}`] = "City is required";
         isValid = false;
+      } else if (bundle.city.length > 45) {
+        bundleErrors[`city-${bundle.tempId}`] = "City must be at most 45 characters";
+        isValid = false;
+      }
+
+      if (!bundle.street) {
+        bundleErrors[`street-${bundle.tempId}`] = "Street is required";
+        isValid = false;
+      } else if (bundle.street.length > 45) {
+        bundleErrors[`street-${bundle.tempId}`] = "Street must be at most 45 characters";
+        isValid = false;
+      }
+
+      if (!bundle.building) {
+        bundleErrors[`building-${bundle.tempId}`] = "Building is required";
+        isValid = false;
+      } else if (bundle.building.length > 45) {
+        bundleErrors[`building-${bundle.tempId}`] = "Building must be at most 45 characters";
+        isValid = false;
+      }
+
+      if (bundle.floor && bundle.floor.length > 45) {
+        bundleErrors[`floor-${bundle.tempId}`] = "Floor must be at most 45 characters";
+        isValid = false;
+      }
+      if (bundle.googleMapsUrl && !URL_REGEX_PATTERN.test(bundle.googleMapsUrl)) {
+        bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "Invalid URL format";
+        isValid = false;
+      } else if (bundle.googleMapsUrl && bundle.googleMapsUrl.length > 255) {
+        bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "URL must be at most 255 characters";
+        isValid = false;
       }
     });
-
     setValidationErrors(bundleErrors);
     return isValid;
   }, [selectedBundles]);
@@ -177,11 +216,14 @@ const useUserForm = ({
                  console.warn(`Server error for bundle index ${index} not found in state.`);
               }
            } else if (err.field === 'location.address') {
-               setError('address', { type: 'server', message: err.message });
+              setError('address', { type: 'server', message: err.message });
            } else if (err.field === 'location.city') {
-               setError('city', { type: 'server', message: err.message });
-           }
-           else {
+              setError('city', { type: 'server', message: err.message });
+           } else if (err.field === 'location.street') {
+              setError('street', { type: 'server', message: err.message });
+           } else if (err.field === 'location.building') {
+              setError('building', { type: 'server', message: err.message });
+           } else {
              setError(err.field, {
                type: "server",
                message: err.message,
@@ -219,10 +261,12 @@ const useUserForm = ({
     if (existingUrl && googleMapsUrlRegex.test(existingUrl)) {
         urlToOpen = existingUrl;
     } else {
-        const {  city } = locationData;
+        const { address, street, city } = locationData; 
         const queryParts = [];
+        if (address) queryParts.push(address);
+        if (street) queryParts.push(street);
         if (city) queryParts.push(city);
-
+        
         const queryString = queryParts.join(', ');
 
         if (queryString) {
@@ -246,7 +290,7 @@ const useUserForm = ({
         building,
         floor,
         googleMapsUrl
-    } = getValues(); // Get all form values as an object
+    } = getValues(); 
     const primaryLocationData = { address, city, street, building, floor, googleMapsUrl };
     openGoogleMaps(primaryLocationData, primaryLocationData.googleMapsUrl);
   }, [getValues, openGoogleMaps]);
@@ -314,16 +358,16 @@ const useUserForm = ({
       b.tempId === tempId ? {...b, [field]: value} : b
     ));
 
-    if ((field === 'address' || field === 'city') && value) {
+    if (value && validationErrors[`${field}-${tempId}`]) {
       setValidationErrors(prev => {
         const newErrors = {...prev};
-        if (newErrors[`${field}-${tempId}`]) {
-           delete newErrors[`${field}-${tempId}`];
+        if (newErrors[`${field}-${tempId}`]) { 
+           delete newErrors[`${field}-${tempId}`]; 
         }
         return newErrors;
       });
     }
-  }, [setValidationErrors]);
+  }, [setValidationErrors, validationErrors]);
 
 
   const handleBundleStatusChange = useCallback((tempId, newStatus) => {
@@ -360,7 +404,7 @@ const useUserForm = ({
       building: primaryBuilding,
       floor: primaryFloor,
       googleMapsUrl: primaryGoogleMapsUrl,
-    } = getValues(); // Gets all registered form values
+    } = getValues(); 
 
     setSelectedBundles(prevBundles =>
       prevBundles.map(b => {
@@ -379,16 +423,18 @@ const useUserForm = ({
       })
     );
 
-    // Clear validation errors for this bundle's address and city if they now have values
     setValidationErrors(prevErrors => {
       const newErrors = { ...prevErrors };
-      if (primaryAddress) delete newErrors[`address-${bundleTempId}`];
-      if (primaryCity) delete newErrors[`city-${bundleTempId}`];
+      if (primaryAddress) delete newErrors[`address-${bundleTempId}`]; 
+      if (primaryCity) delete newErrors[`city-${bundleTempId}`]; 
+      if (primaryStreet) delete newErrors[`street-${bundleTempId}`];
+      if (primaryBuilding) delete newErrors[`building-${bundleTempId}`];
+      if (primaryGoogleMapsUrl && URL_REGEX_PATTERN.test(primaryGoogleMapsUrl)) delete newErrors[`googleMapsUrl-${bundleTempId}`];
       return newErrors;
     });
 
     showInfoToast("Bundle location set to user's primary location.");
-  }, [getValues, setSelectedBundles, setValidationErrors, showInfoToast]);
+  }, [getValues, setSelectedBundles, setValidationErrors, showInfoToast]); // URL_REGEX_PATTERN is stable
 
 
   const renderBundleLocationFields = useCallback((bundle) => (
@@ -438,7 +484,11 @@ const useUserForm = ({
             type="text"
             value={bundle.street}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'street', e.target.value)}
+            isInvalid={!!validationErrors[`street-${bundle.tempId}`]}
           />
+          <Form.Control.Feedback type="invalid">
+            {validationErrors[`street-${bundle.tempId}`]}
+          </Form.Control.Feedback>
         </Form.Group>
       </Col>
       <Col md={6}>
@@ -448,7 +498,11 @@ const useUserForm = ({
             type="text"
             value={bundle.building}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'building', e.target.value)}
+            isInvalid={!!validationErrors[`building-${bundle.tempId}`]}
           />
+          <Form.Control.Feedback type="invalid">
+            {validationErrors[`building-${bundle.tempId}`]}
+          </Form.Control.Feedback>
         </Form.Group>
       </Col>
       <Col md={6}>
@@ -458,7 +512,11 @@ const useUserForm = ({
             type="text"
             value={bundle.floor}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'floor', e.target.value)}
+            isInvalid={!!validationErrors[`floor-${bundle.tempId}`]}
           />
+          <Form.Control.Feedback type="invalid">
+            {validationErrors[`floor-${bundle.tempId}`]}
+          </Form.Control.Feedback>
         </Form.Group>
       </Col>
 
@@ -469,11 +527,15 @@ const useUserForm = ({
             type="text"
             value={bundle.googleMapsUrl}
             onChange={(e) => handleBundleLocationChange(bundle.tempId, 'googleMapsUrl', e.target.value)}
+            isInvalid={!!validationErrors[`googleMapsUrl-${bundle.tempId}`]}
           />
+          <Form.Control.Feedback type="invalid">
+            {validationErrors[`googleMapsUrl-${bundle.tempId}`]}
+          </Form.Control.Feedback>
         </Form.Group>
       </Col>
 
-      <Col md={12} className="d-flex justify-content-end align-items-center mt-2"> {/* Changed to justify-content-end as only one button remains here */}
+      <Col md={12} className="d-flex justify-content-end align-items-center mt-2"> 
         <Button variant="outline-secondary" size="sm" onClick={() => handleBundleLocationMapPick(bundle.tempId)}>
           Pick on Map / View Map
         </Button>

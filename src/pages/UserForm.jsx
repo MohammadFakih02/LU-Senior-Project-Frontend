@@ -10,6 +10,8 @@ import BundleSubscriptionsSection from "../components/userform/BundleSubscriptio
 import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
+const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+
 const UserForm = () => {
   const {
     bundles,
@@ -38,8 +40,38 @@ const UserForm = () => {
          building: '',
          floor: '',
          googleMapsUrl: '',
-     }
+     },
   });
+
+  const userInfoValidations = {
+    firstName: { required: 'First name is required', maxLength: { value: 45, message: 'First name must be at most 45 characters' } },
+    lastName: { required: 'Last name is required', maxLength: { value: 45, message: 'Last name must be at most 45 characters' } },
+    email: { 
+      required: 'Email is required', 
+      maxLength: { value: 60, message: 'Email must be at most 60 characters' },
+      pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Invalid email address' }
+    },
+    phone: { required: 'Phone number is required', maxLength: { value: 45, message: 'Phone number must be at most 45 characters' } },
+  };
+
+  const primaryLocationValidations = {
+    address: { required: "Address is required", maxLength: { value: 255, message: "Address must be at most 255 characters" } },
+    city: { required: "City is required", maxLength: { value: 45, message: "City must be at most 45 characters" } },
+    street: { required: "Street is required", maxLength: { value: 45, message: "Street must be at most 45 characters" } },
+    building: { required: "Building is required", maxLength: { value: 45, message: "Building must be at most 45 characters" } },
+    floor: { maxLength: { value: 45, message: "Floor must be at most 45 characters" } }, 
+    googleMapsUrl: { 
+        pattern: { 
+            value: URL_REGEX_PATTERN, 
+            message: 'Invalid URL format' 
+        }, 
+        maxLength: { 
+            value: 255, 
+            message: "URL must be at most 255 characters" 
+        } 
+    }, 
+  };
+
 
   const {
     apiError,
@@ -146,12 +178,14 @@ const UserForm = () => {
                 isEditMode={isEditMode}
                 userStatus={userStatus}
                 setUserStatus={setUserStatus}
+                validations={userInfoValidations}
               />
 
               <PrimaryLocationSection
                 register={register}
                 errors={errors}
                 onMapPickClick={handlePrimaryLocationMapPick}
+                validations={primaryLocationValidations} 
               />
             </Row>
 
