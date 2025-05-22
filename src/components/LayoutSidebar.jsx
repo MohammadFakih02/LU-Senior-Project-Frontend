@@ -1,6 +1,6 @@
 // LayoutSidebar.jsx
 import { useState, useEffect, useContext } from "react";
-import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner } from "react-bootstrap"; // Added Spinner
+import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner } from "react-bootstrap";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { 
   PeopleFill, 
@@ -13,7 +13,6 @@ import {
   X,
   ArrowClockwise
 } from "react-bootstrap-icons";
-import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import AppContext from '../context/AppContext';
 import './styles/LayoutSidebar.css';
@@ -26,40 +25,48 @@ const LayoutSidebar = () => {
   const { 
     appSettings, 
     updateAppSettings, 
-    appSettingsLoading, // Added for settings form
-    // appSettingsError, // Available if you want to display a specific error message for settings
+    appSettingsLoading,
+    appSettingsError, 
     showSuccessToast: contextShowSuccessToast,
     showErrorToast: contextShowErrorToast,
+    showInfoToast: contextShowInfoToast, // Added for Refresh All feedback
     usersError,
     paymentsError,
     bundlesError,
     refreshUsers,
     refreshPayments,
-    refreshBundles
+    refreshBundles,
+    refreshAppSettings, 
   } = useContext(AppContext);
 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
-  const [isSavingSettings, setIsSavingSettings] = useState(false); // For save button loading state
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isRetryingLoadSettings, setIsRetryingLoadSettings] = useState(false); // For retry button in panel
+  const [isReloadingSettingsOnly, setIsReloadingSettingsOnly] = useState(false); // For global alert button
 
-  const hasMultipleErrors = [usersError, paymentsError, bundlesError].filter(Boolean).length >= 2;
 
+  // Check for any data loading errors, including app settings
+  const dataErrors = [usersError, paymentsError, bundlesError, appSettingsError].filter(Boolean);
+  const hasMultipleErrors = dataErrors.length >= 2;
+  
   const handleRefreshAll = async () => {
+    contextShowInfoToast('Refreshing all data...'); 
     try {
       await Promise.all([
         refreshUsers({ showToast: false }),
         refreshPayments({ showToast: false }),
-        refreshBundles({ showToast: false })
+        refreshBundles({ showToast: false }),
+        refreshAppSettings({ showToastOnSuccess: false, showToastOnError: false }) 
       ]);
       contextShowSuccessToast('All data refreshed successfully');
     } catch (error) {
       console.error("Error during 'Refresh All' operation:", error);
-      contextShowErrorToast('Failed to refresh some data.');
+      contextShowErrorToast('Failed to refresh some data. Check console for details.');
     }
   };
 
   useEffect(() => {
-    // Update stagedSettings when appSettings from context change (e.g., after initial fetch)
     setStagedSettings({ ...appSettings });
   }, [appSettings]);
 
@@ -68,18 +75,18 @@ const LayoutSidebar = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (!mobile) {
-        setSidebarOpen(true);
+        setSidebarOpen(true); 
       } else {
-        setSidebarOpen(false);
-        if (showSettingsPanel) {
+        setSidebarOpen(false); 
+        if (showSettingsPanel) { 
             setShowSettingsPanel(false);
         }
       }
     };
-    handleResize();
+    handleResize(); 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [showSettingsPanel]);
+  }, [showSettingsPanel]); 
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -94,7 +101,7 @@ const LayoutSidebar = () => {
   const handleOpenSettingsPanel = () => {
     setStagedSettings({ ...appSettings }); 
     setShowSettingsPanel(true);
-    if (isMobile && !sidebarOpen) {
+    if (isMobile && !sidebarOpen) { 
         setSidebarOpen(true); 
     }
   };
@@ -106,15 +113,13 @@ const LayoutSidebar = () => {
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     try {
-      await updateAppSettings(stagedSettings); 
-      setShowSettingsPanel(false);
-      contextShowSuccessToast('Settings saved successfully!');
+      const success = await updateAppSettings(stagedSettings); 
+      if (success) {
+        setShowSettingsPanel(false); 
+        contextShowSuccessToast('Settings saved successfully!');
+      }
     } catch (error) {
-      // Errors are already toasted by updateAppSettings in AppContext
-      // contextShowErrorToast(error.message || 'Failed to save settings. Please check individual messages.');
       console.error("Error saving settings from LayoutSidebar:", error);
-      // Optionally, keep the panel open on error, or close it:
-      // setShowSettingsPanel(false); // Or keep it open for user to retry
     } finally {
       setIsSavingSettings(false);
     }
@@ -130,7 +135,16 @@ const LayoutSidebar = () => {
 
   const handleOverlayClick = () => {
     if (isMobile && sidebarOpen) {
-      setSidebarOpen(false);
+      setSidebarOpen(false); 
+    }
+  };
+
+  const handleReloadSettings = async (setter) => {
+    setter(true);
+    try {
+      await refreshAppSettings({ showToastOnSuccess: true, showToastOnError: true });
+    } finally {
+      setter(false);
     }
   };
 
@@ -226,77 +240,95 @@ const LayoutSidebar = () => {
                       <Spinner animation="border" variant="light" size="sm" />
                       <p className="small mt-2 mb-0 text-white-50">Loading settings...</p>
                     </div>
-                  ) : (
-                    <Form className="settings-form">
-                      <Form.Group className="mb-2" controlId="autoCreateMonthly">
-                        <Form.Check
-                          type="switch"
-                          name="autoCreateMonthly"
-                          label="Auto Create Payments monthly"
-                          checked={stagedSettings.autoCreateMonthly || false}
-                          onChange={handleSettingChange}
-                          className="text-white"
-                        />
-                      </Form.Group>
-
-                      <Form.Group className="mb-2" controlId="autoCreateOnUserCreation">
-                        <Form.Check
-                          type="switch"
-                          name="autoCreateOnUserCreation"
-                          label="Auto create payments on user creation"
-                          checked={stagedSettings.autoCreateOnUserCreation || false}
-                          onChange={handleSettingChange}
-                          className="text-white"
-                        />
-                      </Form.Group>
-
-                      <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment">
-                        <Form.Check
-                          type="switch"
-                          name="autoDisableBundleOnNoPayment"
-                          label="Auto disable bundle if no payment"
-                          checked={stagedSettings.autoDisableBundleOnNoPayment || false}
-                          onChange={handleSettingChange}
-                          className="text-white"
-                        />
-                      </Form.Group>
-
-                      <Form.Group className="mb-3" controlId="autoDeletePaymentTime">
-                        <Form.Label className="text-white small mb-1">Auto delete payments after</Form.Label>
-                        <Form.Select
-                          name="autoDeletePaymentTime"
-                          aria-label="Auto delete payments after"
-                          value={stagedSettings.autoDeletePaymentTime || 'never'}
-                          onChange={handleSettingChange}
-                          size="sm"
-                        >
-                          <option value="30">30 days</option>
-                          <option value="60">60 days</option>
-                          <option value="90">90 days</option>
-                          <option value="never">Never</option>
-                        </Form.Select>
-                      </Form.Group>
-                    </Form>
-                  )}
-                  
-                  {!appSettingsLoading && (
-                    <div className="d-flex justify-content-end mt-3">
+                  ) : appSettingsError ? (
+                    <Alert variant="danger" className="text-center small">
+                      <p className="mb-2">{appSettingsError}</p>
                       <Button 
-                        variant="primary" 
+                        variant="danger" 
                         size="sm" 
-                        onClick={handleSaveSettings}
-                        disabled={isSavingSettings}
+                        onClick={() => handleReloadSettings(setIsRetryingLoadSettings)}
+                        disabled={isRetryingLoadSettings}
                       >
-                        {isSavingSettings ? (
+                        {isRetryingLoadSettings ? (
                           <>
                             <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                            <span className="visually-hidden">Saving...</span>
+                            <span className="visually-hidden ms-1">Retrying...</span>
                           </>
                         ) : (
-                          "Save Changes"
+                          "Retry Load"
                         )}
                       </Button>
-                    </div>
+                    </Alert>
+                  ) : (
+                    <>
+                      <Form className="settings-form">
+                        <Form.Group className="mb-2" controlId="autoCreateMonthly">
+                          <Form.Check
+                            type="switch"
+                            name="autoCreateMonthly"
+                            label="Auto Create Payments monthly"
+                            checked={stagedSettings.autoCreateMonthly || false}
+                            onChange={handleSettingChange}
+                            className="text-white"
+                          />
+                        </Form.Group>
+
+                        <Form.Group className="mb-2" controlId="autoCreateOnUserCreation">
+                          <Form.Check
+                            type="switch"
+                            name="autoCreateOnUserCreation"
+                            label="Auto create payments on user creation"
+                            checked={stagedSettings.autoCreateOnUserCreation || false}
+                            onChange={handleSettingChange}
+                            className="text-white"
+                          />
+                        </Form.Group>
+
+                        <Form.Group className="mb-2" controlId="autoDisableBundleOnNoPayment">
+                          <Form.Check
+                            type="switch"
+                            name="autoDisableBundleOnNoPayment"
+                            label="Auto disable bundle if no payment"
+                            checked={stagedSettings.autoDisableBundleOnNoPayment || false}
+                            onChange={handleSettingChange}
+                            className="text-white"
+                          />
+                        </Form.Group>
+
+                        <Form.Group className="mb-3" controlId="autoDeletePaymentTime">
+                          <Form.Label className="text-white small mb-1">Auto delete payments after</Form.Label>
+                          <Form.Select
+                            name="autoDeletePaymentTime"
+                            aria-label="Auto delete payments after"
+                            value={stagedSettings.autoDeletePaymentTime || 'never'}
+                            onChange={handleSettingChange}
+                            size="sm"
+                          >
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90">90 days</option>
+                            <option value="never">Never</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Form>
+                      <div className="d-flex justify-content-end mt-3">
+                        <Button 
+                          variant="primary" 
+                          size="sm" 
+                          onClick={handleSaveSettings}
+                          disabled={isSavingSettings}
+                        >
+                          {isSavingSettings ? (
+                            <>
+                              <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                              <span className="visually-hidden ms-1">Saving...</span>
+                            </>
+                          ) : (
+                            "Save Changes"
+                          )}
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -312,7 +344,7 @@ const LayoutSidebar = () => {
                   tabIndex={0}
                   onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenSettingsPanel()}
                   aria-expanded={showSettingsPanel}
-                  aria-controls="settings-panel-content" // Assuming this refers to the content within settings-panel
+                  aria-controls="settings-panel-content" 
                 >
                   <GearFill className="fs-5" />
                   <span>Settings</span>
@@ -342,23 +374,47 @@ const LayoutSidebar = () => {
                 <h4 className="m-0 text-capitalize">
                   {location.pathname.split('/')[1] || 'Dashboard'}
                 </h4>
-                <div style={{ width: '40px' }}></div> 
+                <div style={{ width: '40px' }}></div> {/* Spacer to balance the header */}
               </div>
             </div>
           )}
           
-          {/* Alert container */}
+          {/* Alert container for multiple errors */}
           {hasMultipleErrors && (
             <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'}`}>
               <Alert variant="danger" className="mb-0">
                 <div className="d-flex justify-content-between align-items-center">
-                  <span>Multiple data sources failed to load</span>
+                  <span>Multiple data sources failed to load.</span>
                   <Button 
                     variant="danger" 
                     onClick={handleRefreshAll}
                     className="d-flex align-items-center gap-2"
                   >
                     <ArrowClockwise /> Refresh All
+                  </Button>
+                </div>
+              </Alert>
+            </div>
+          )}
+
+          {/* Alert for App Settings load failure (if not covered by multiple errors) */}
+          {appSettingsError && !appSettingsLoading && !hasMultipleErrors && (
+            <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'} ${hasMultipleErrors ? 'mt-3' : ''}`}>
+              <Alert variant="warning" className="mb-0">
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>{appSettingsError}</span>
+                  <Button 
+                    variant="warning" // Match Alert variant
+                    onClick={() => handleReloadSettings(setIsReloadingSettingsOnly)}
+                    disabled={isReloadingSettingsOnly}
+                    className="d-flex align-items-center gap-1"
+                  >
+                    {isReloadingSettingsOnly ? (
+                      <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
+                    ) : (
+                      <ArrowClockwise size={16}/>
+                    )}
+                    <span className="ms-1">Reload Settings</span>
                   </Button>
                 </div>
               </Alert>
@@ -371,7 +427,6 @@ const LayoutSidebar = () => {
           </div>
         </Col>
       </Row>
-      <ToastContainer autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
     </Container>
   );
 };

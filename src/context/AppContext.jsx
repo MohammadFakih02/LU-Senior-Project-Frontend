@@ -3,7 +3,7 @@ import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const API_BASE_URL = "http://localhost:8080"; // Main API base
+const API_BASE_URL = "https://internet-provider-service-314943734627.europe-west1.run.app"; // Main API base
 const CONFIG_API_BASE_URL = `${API_BASE_URL}/api/config`; // Config API base
 
 const AppContext = createContext();
@@ -66,53 +66,70 @@ export const AppProvider = ({ children }) => {
     toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 3500 });
   };
 
+  // Function to fetch/refresh app settings
+  const fetchOrRefreshAppSettings = async (isInitialFetch = false, options = {}) => {
+    const { 
+      showToastOnSuccess = !isInitialFetch, // Show success toast on manual refresh by default
+      showToastOnError = true 
+    } = options;
+
+    setAppSettingsLoading(true);
+    setAppSettingsError(null); // Clear previous errors on new attempt
+    try {
+      const [
+        recurringPaymentsRes,
+        overdueProcessingRes,
+        retentionDaysRes,
+        autoCreateInitialPaymentRes,
+      ] = await Promise.all([
+        axios.get(`${CONFIG_API_BASE_URL}/recurring-payments`),
+        axios.get(`${CONFIG_API_BASE_URL}/overdue-processing`),
+        axios.get(`${CONFIG_API_BASE_URL}/retention-days`),
+        axios.get(`${CONFIG_API_BASE_URL}/initial-payment/auto-create`),
+      ]);
+
+      const fetchedBackendSettings = {
+        autoCreateMonthly: recurringPaymentsRes.data,
+        autoDisableBundleOnNoPayment: overdueProcessingRes.data,
+        autoDeletePaymentTime: mapRetentionDaysFromBackend(retentionDaysRes.data),
+        autoCreateOnUserCreation: autoCreateInitialPaymentRes.data,
+      };
+      
+      setAppSettings(prevSettings => {
+        const newSettings = {
+          ...defaultSettings,
+          ...prevSettings, // existing client-side or localStorage settings
+          ...fetchedBackendSettings,
+        };
+        localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
+        return newSettings;
+      });
+
+      if (showToastOnSuccess) {
+        showSuccessToast("Application settings loaded/reloaded successfully.");
+      }
+      return true; // Indicate success
+    } catch (err) {
+      const errorMessage = "Failed to load application settings from server. Using local/default settings if available.";
+      console.error("Failed to fetch/refresh app settings from backend", err);
+      setAppSettingsError(errorMessage);
+      if (showToastOnError) {
+        showErrorToast(isInitialFetch ? "Failed to load app settings. Using cached or default values." : "Failed to reload app settings.");
+      }
+      throw err; // Re-throw for caller to handle if needed
+    } finally {
+      setAppSettingsLoading(false);
+    }
+  };
+  
   // Fetch initial app settings from backend
   useEffect(() => {
-    const fetchAppSettings = async () => {
-      setAppSettingsLoading(true);
-      setAppSettingsError(null);
-      try {
-        const [
-          recurringPaymentsRes,
-          overdueProcessingRes,
-          retentionDaysRes,
-          autoCreateInitialPaymentRes, // Added for autoCreateOnUserCreation
-        ] = await Promise.all([
-          axios.get(`${CONFIG_API_BASE_URL}/recurring-payments`),
-          axios.get(`${CONFIG_API_BASE_URL}/overdue-processing`),
-          axios.get(`${CONFIG_API_BASE_URL}/retention-days`),
-          axios.get(`${CONFIG_API_BASE_URL}/initial-payment/auto-create`), // New endpoint
-        ]);
-
-        const fetchedBackendSettings = {
-          autoCreateMonthly: recurringPaymentsRes.data,
-          autoDisableBundleOnNoPayment: overdueProcessingRes.data,
-          autoDeletePaymentTime: mapRetentionDaysFromBackend(retentionDaysRes.data),
-          autoCreateOnUserCreation: autoCreateInitialPaymentRes.data, // Mapped from backend
-        };
-        
-        setAppSettings(prevSettings => {
-          // Merge defaults, then localStorage (already in prevSettings), then backend settings
-          const newSettings = {
-            ...defaultSettings, // Start with defaults
-            ...prevSettings,    // Overlay with any localStorage values (if any other client-side settings exist)
-            ...fetchedBackendSettings, // Overlay with backend-sourced settings
-          };
-          localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
-          return newSettings;
-        });
-        // showInfoToast("Application settings loaded from server.");
-      } catch (err) {
-        console.error("Failed to fetch app settings from backend", err);
-        setAppSettingsError("Failed to load application settings from server. Using local/default settings.");
-        showErrorToast("Failed to load app settings. Using cached or default values.");
-      } finally {
-        setAppSettingsLoading(false);
-      }
-    };
-
-    fetchAppSettings();
+    fetchOrRefreshAppSettings(true, { showToastOnSuccess: false }); // isInitialFetch = true, suppress success toast
   }, []);
+
+  const refreshAppSettings = async (options = { showToastOnSuccess: true, showToastOnError: true }) => {
+    return fetchOrRefreshAppSettings(false, options); // isInitialFetch = false
+  };
 
 
   const updateAppSettings = async (newSettings) => {
@@ -188,14 +205,12 @@ export const AppProvider = ({ children }) => {
         await Promise.all(backendUpdatePromises);
       }
       
-      // Update local state and localStorage with the full newSettings object
-      // This includes all settings, whether client-only or backend-synced
       setAppSettings(currentFullSettings => {
         const updatedFullSettings = { ...currentFullSettings, ...newSettings };
         localStorage.setItem('appDashboardSettings', JSON.stringify(updatedFullSettings));
         return updatedFullSettings;
       });
-      return true; // Indicate success
+      return true; 
 
     } catch (error) {
       console.error("One or more settings failed to update on the backend.", error.message);
@@ -480,6 +495,7 @@ export const AppProvider = ({ children }) => {
       updateAppSettings,
       appSettingsLoading,
       appSettingsError,
+      refreshAppSettings, // Export the new function
     }}>
       {children}
     </AppContext.Provider>
