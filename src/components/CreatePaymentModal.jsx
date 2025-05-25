@@ -27,10 +27,10 @@ const CreatePaymentModal = ({
   useEffect(() => {
     if (show && selectionData) {
       setAmount(selectionData.bundlePrice?.toString() || '');
-      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setPaymentDate('');
       setDueDate('');
       setSelectedMethod('');
-      setSelectedStatus('PENDING'); // Default to PENDING
+      setSelectedStatus('PENDING');
     } else if (!selectionData && show) {
         console.error("CreatePaymentModal opened without selectionData!");
         if (!selectionData?.userId) {
@@ -41,9 +41,12 @@ const CreatePaymentModal = ({
   }, [show, selectionData, onHide]);
 
   useEffect(() => {
-    // If status is not 'PAID', clear and disable payment method
     if (selectedStatus !== 'PAID') {
       setSelectedMethod('');
+    }
+    // If status is PENDING or UNPAID, clear and effectively nullify paymentDate
+    if (selectedStatus === 'PENDING' || selectedStatus === 'UNPAID') {
+      setPaymentDate('');
     }
   }, [selectedStatus]);
 
@@ -61,8 +64,8 @@ const CreatePaymentModal = ({
       showErrorToast("Due Date is required.");
       return;
     }
-    const parsedDueDate = new Date(dueDate + "T00:00:00Z");
-    if (parsedDueDate < today) {
+    const localDueDate = new Date(dueDate);
+    if (localDueDate < today) {
       showErrorToast("Due Date must be in the present or future.");
       return;
     }
@@ -74,7 +77,7 @@ const CreatePaymentModal = ({
 
     const numericAmount = Number(amount);
     if (isNaN(numericAmount) || numericAmount < 0.01) {
-      showErrorToast("Amount must be a number greater than 0.");
+      showErrorToast("Amount must be a number greater than 0.00.");
       return;
     }
 
@@ -99,6 +102,19 @@ const CreatePaymentModal = ({
         showErrorToast("Please fill in Amount and Due Date before sending notification.");
         return;
     }
+     const numericAmount = Number(amount);
+    if (isNaN(numericAmount) || numericAmount < 0.01) {
+      showErrorToast("Amount for notification must be a number greater than 0.00.");
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const localDueDate = new Date(dueDate);
+    if (localDueDate < today) {
+      showErrorToast("Due Date for notification must be in the present or future.");
+      return;
+    }
+
 
     setIsFetchingWhatsappUser(true);
     try {
@@ -135,6 +151,7 @@ const CreatePaymentModal = ({
 
   const userNameDisplay = selectionData?.userName ? selectionData.userName.split(' (User ID:')[0].trim() : 'N/A';
   const bundleNameDisplay = selectionData?.bundleName || 'N/A';
+  const todayDateString = new Date().toISOString().split('T')[0];
 
 
   return (
@@ -171,6 +188,7 @@ const CreatePaymentModal = ({
           <Form.Control
             type="number"
             step="0.01"
+            min="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="Enter amount"
@@ -184,6 +202,7 @@ const CreatePaymentModal = ({
             type="date"
             value={paymentDate}
             onChange={(e) => setPaymentDate(e.target.value)}
+            disabled={selectedStatus === 'PENDING' || selectedStatus === 'UNPAID' || isLoading}
           />
         </Form.Group>
 
@@ -193,6 +212,7 @@ const CreatePaymentModal = ({
             type="date"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
+            min={todayDateString}
             required
           />
         </Form.Group>
@@ -232,7 +252,15 @@ const CreatePaymentModal = ({
         <Button
             variant="success"
             onClick={handleNotifyViaWhatsapp}
-            disabled={isLoading || isFetchingWhatsappUser || !selectionData?.userId || !dueDate || !amount}
+            disabled={
+                isLoading || 
+                isFetchingWhatsappUser || 
+                !selectionData?.userId || 
+                !dueDate || 
+                !amount || 
+                Number(amount) < 0.01 || 
+                (dueDate && new Date(dueDate) < new Date(new Date().toISOString().split('T')[0]))
+            }
             className="d-flex align-items-center"
         >
             {isFetchingWhatsappUser ? <Spinner size="sm" className="me-2" /> : <Whatsapp className="me-2" />}
@@ -244,8 +272,8 @@ const CreatePaymentModal = ({
           disabled={
             isLoading ||
             isFetchingWhatsappUser ||
-            !amount ||
-            !dueDate ||
+            !amount || Number(amount) < 0.01 ||
+            !dueDate || (dueDate && new Date(dueDate) < new Date(new Date().toISOString().split('T')[0])) ||
             (selectedStatus === 'PAID' && !selectedMethod) ||
             !selectionData?.userBundleId
           }

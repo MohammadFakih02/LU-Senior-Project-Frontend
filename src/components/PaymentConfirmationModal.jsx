@@ -22,7 +22,6 @@ const PaymentConfirmationModal = ({
   useEffect(() => {
     if (show && payment) {
       setEditableAmount(payment.amount || 0);
-      // Pre-fill method if payment has one, otherwise leave it for user to select if marking as PAID
       setSelectedMethod(payment.paymentMethod || '');
       if (!payment.userId) {
           console.warn("PaymentConfirmationModal: payment object is missing userId. WhatsApp notification may not work.");
@@ -48,11 +47,11 @@ const PaymentConfirmationModal = ({
         paymentDate: new Date().toISOString(),
         amount: numericAmount
       });
-    } else { // Update Amount action
+    } else {
       onConfirm({
-        status: payment?.status, // Keep original status
-        paymentMethod: payment?.paymentMethod, // Keep original method
-        paymentDate: payment?.paymentDate, // Keep original payment date
+        status: payment?.status,
+        paymentMethod: payment?.paymentMethod,
+        paymentDate: payment?.paymentDate,
         amount: numericAmount
       });
     }
@@ -68,6 +67,12 @@ const PaymentConfirmationModal = ({
         // We could allow sending it anyway, but for now, let's restrict.
         // return;
     }
+    const numericAmount = Number(editableAmount);
+     if (isNaN(numericAmount) || numericAmount < 0.01) {
+        showErrorToast("Amount for notification must be a number greater than 0.");
+        return;
+    }
+
 
     setIsFetchingWhatsappUser(true);
     try {
@@ -82,7 +87,7 @@ const PaymentConfirmationModal = ({
             const link = generateWhatsAppLink(
                 userDetails.phone,
                 detailsForMsg,
-                payment.status === 'PAID' ? 'payment_confirmation' : 'reminder' // Adjust message type
+                payment.status === 'PAID' ? 'payment_confirmation' : 'reminder'
             );
             if (link) {
                 window.open(link, '_blank');
@@ -111,6 +116,7 @@ const PaymentConfirmationModal = ({
           <Form.Control
             type="number"
             step="0.01"
+            min="0.01"
             value={editableAmount}
             onChange={(e) => setEditableAmount(e.target.value)}
             disabled={isLoading || isFetchingWhatsappUser}
@@ -177,7 +183,7 @@ const PaymentConfirmationModal = ({
          <Button
             variant="success"
             onClick={handleNotifyViaWhatsapp}
-            disabled={isLoading || isFetchingWhatsappUser || !payment?.userId}
+            disabled={isLoading || isFetchingWhatsappUser || !payment?.userId || Number(editableAmount) < 0.01}
             className="d-flex align-items-center"
         >
             {isFetchingWhatsappUser ? <Spinner size="sm" className="me-2" /> : <Whatsapp className="me-2" />}
@@ -186,8 +192,8 @@ const PaymentConfirmationModal = ({
         {payment?.status !== 'PAID' && (
             <Button
             variant="warning"
-            onClick={() => handleSubmit(false)} // Update Amount
-            disabled={isLoading || isFetchingWhatsappUser}
+            onClick={() => handleSubmit(false)}
+            disabled={isLoading || isFetchingWhatsappUser || Number(editableAmount) < 0.01}
             >
             {isLoading ? <Spinner size="sm" /> : 'Update Amount'}
             </Button>
@@ -195,17 +201,17 @@ const PaymentConfirmationModal = ({
         {payment?.status !== 'PAID' && (
             <Button
             variant="primary"
-            onClick={() => handleSubmit(true)} // Mark Paid
-            disabled={isLoading || isFetchingWhatsappUser || !selectedMethod}
+            onClick={() => handleSubmit(true)}
+            disabled={isLoading || isFetchingWhatsappUser || !selectedMethod || Number(editableAmount) < 0.01}
             >
             {isLoading ? <Spinner size="sm" /> : 'Mark Paid'}
             </Button>
         )}
-        {payment?.status === 'PAID' && ( // If already paid, allow updating amount (and potentially method if user changed it)
+        {payment?.status === 'PAID' && (
              <Button
              variant="primary"
-             onClick={() => handleSubmit(true)} // Effectively "Update Paid Payment"
-             disabled={isLoading || isFetchingWhatsappUser || !selectedMethod} // Method still required for a PAID record
+             onClick={() => handleSubmit(true)}
+             disabled={isLoading || isFetchingWhatsappUser || !selectedMethod || Number(editableAmount) < 0.01}
              >
              {isLoading ? <Spinner size="sm" /> : 'Update Payment'}
              </Button>
