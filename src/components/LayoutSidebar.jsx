@@ -21,6 +21,8 @@ import './styles/LayoutSidebar.css';
 const LayoutSidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -43,15 +45,63 @@ const LayoutSidebar = () => {
     refreshBundles,
   } = useContext(AppContext);
 
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [isRetryingLoadSettings, setIsRetryingLoadSettings] = useState(false);
   const [isReloadingSettingsOnly, setIsReloadingSettingsOnly] = useState(false);
 
-
   const dataErrors = [usersError, paymentsError, bundlesError, appSettingsError].filter(Boolean);
   const hasMultipleErrors = dataErrors.length >= 2;
+  
+  useEffect(() => {
+    setStagedSettings({ ...appSettings });
+  }, [appSettings]);
+
+  useEffect(() => {
+    const updateLayout = () => {
+      const currentMobileState = window.innerWidth < 768;
+      setIsMobile(currentMobileState);
+
+      if (currentMobileState) {
+        setSidebarOpen(false);
+        setShowSettingsPanel(false); 
+      } else {
+        setSidebarOpen(true);
+        // On desktop, settings panel visibility is independent of sidebar becoming open
+      }
+    };
+
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setSidebarOpen(false);
+      setShowSettingsPanel(false);
+    }
+  }, [location, isMobile]);
+
+  const toggleSidebar = () => {
+    const newSidebarState = !sidebarOpen;
+    setSidebarOpen(newSidebarState);
+    if (!newSidebarState && isMobile) { 
+      setShowSettingsPanel(false); 
+    }
+  };
+
+  const handleOpenSettingsPanel = () => {
+    setStagedSettings({ ...appSettings }); 
+    setShowSettingsPanel(true);
+    if (isMobile && !sidebarOpen) { 
+        setSidebarOpen(true); 
+    }
+  };
+
+  const handleCloseSettingsPanel = () => {
+    setShowSettingsPanel(false);
+  };
   
   const handleRefreshAll = async () => {
     contextShowInfoToast('Refreshing all data...'); 
@@ -67,50 +117,6 @@ const LayoutSidebar = () => {
       console.error("Error during 'Refresh All' operation:", error);
       contextShowErrorToast('Failed to refresh some data. Check console for details.');
     }
-  };
-
-  useEffect(() => {
-    setStagedSettings({ ...appSettings });
-  }, [appSettings]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (!mobile) {
-        setSidebarOpen(true); 
-      } else {
-        setSidebarOpen(false); 
-        if (showSettingsPanel) { 
-            setShowSettingsPanel(false);
-        }
-      }
-    };
-    handleResize(); 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [showSettingsPanel]); 
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  useEffect(() => {
-    if (isMobile) {
-      setSidebarOpen(false);
-    }
-  }, [location, isMobile]);
-
-  const handleOpenSettingsPanel = () => {
-    setStagedSettings({ ...appSettings }); 
-    setShowSettingsPanel(true);
-    if (isMobile && !sidebarOpen) { 
-        setSidebarOpen(true); 
-    }
-  };
-
-  const handleCloseSettingsPanel = () => {
-    setShowSettingsPanel(false);
   };
 
   const handleSaveSettings = async () => {
@@ -135,10 +141,15 @@ const LayoutSidebar = () => {
     }));
   };
 
-  const handleOverlayClick = () => {
-    if (isMobile && sidebarOpen) {
+  const handleOverlayClick = (e) => {
+    if (isMobile && sidebarOpen && e.target === e.currentTarget) {
       setSidebarOpen(false); 
+      setShowSettingsPanel(false);
     }
+  };
+
+  const handleSidebarClick = (e) => {
+    e.stopPropagation();
   };
 
   const handleReloadSettings = async (setter) => {
@@ -158,10 +169,20 @@ const LayoutSidebar = () => {
   return (
     <Container fluid className="px-0">
       <Row className="g-0">
+        {isMobile && sidebarOpen && (
+          <div 
+            className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50"
+            style={{ zIndex: 1040 }}
+            onClick={handleOverlayClick}
+          />
+        )}
+        
         <Col 
           md={3} 
           lg={2} 
           className={`min-vh-100 sticky-top bg-dark text-white p-0 sidebar-column ${sidebarOpen ? 'open' : ''}`}
+          style={isMobile && sidebarOpen ? { zIndex: 1050 } : {}}
+          onClick={isMobile ? handleSidebarClick : undefined}
         >
           <div className="d-flex flex-column h-100">
             <div className="p-3 bg-black bg-opacity-50 border-bottom border-secondary position-relative">
@@ -379,8 +400,7 @@ const LayoutSidebar = () => {
         </Col>
 
         <Col 
-          className={`d-flex flex-column bg-light-subtle main-content-column ${isMobile && sidebarOpen ? 'sidebar-open-overlay' : ''}`}
-          onClick={isMobile && sidebarOpen ? handleOverlayClick : undefined}
+          className="d-flex flex-column bg-light-subtle main-content-column"
         >
           {isMobile && (
             <div className="px-3 pt-3 px-md-4 pt-md-4">
