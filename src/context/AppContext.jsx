@@ -3,7 +3,7 @@ import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const API_BASE_URL = "https://internet-provider-service-314943734627.europe-west1.run.app"; // Main API base
+const API_BASE_URL = "http://localhost:8080"; // Main API base
 const CONFIG_API_BASE_URL = `${API_BASE_URL}/api/config`; // Config API base
 
 const AppContext = createContext();

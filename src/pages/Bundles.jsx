@@ -66,7 +66,7 @@ const Bundles = () => {
 
     setIsDeleting(true);
     try {
-      await axios.delete(`https://internet-provider-service-314943734627.europe-west1.run.app/api/bundles/${bundleToDelete.bundleId}`);
+      await axios.delete(`http://localhost:8080/api/bundles/${bundleToDelete.bundleId}`);
       await refreshBundles({ showToast: false });
       showSuccessToast(`Bundle "${bundleToDelete.name}" deleted successfully`);
     } catch (error) {
