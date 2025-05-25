@@ -42,18 +42,37 @@ const useUserForm = ({
       setIsLoading(true);
       try {
         const userData = await fetchUserById(userId);
+        let initialAreaCode = "";
+        let initialPhoneNumber = "";
+
+        if (userData.phone) {
+          const phoneStr = String(userData.phone);
+          const phonePatternMatch = phoneStr.match(/^(\+\d{1,3})(\d+)$/);
+
+          if (phonePatternMatch && phonePatternMatch[1] && phonePatternMatch[2]) {
+            initialAreaCode = phonePatternMatch[1];
+            initialPhoneNumber = phonePatternMatch[2];
+          } else {
+            if (phoneStr.startsWith('+')) {
+              initialAreaCode = phoneStr;
+            } else {
+              initialPhoneNumber = phoneStr;
+            }
+          }
+        }
 
         reset({
           firstName: userData.firstName,
           lastName: userData.lastName,
           email: userData.email,
-          phone: userData.phone,
+          areaCode: initialAreaCode,
+          phoneNumber: initialPhoneNumber,
           landLine: userData.landLine || "",
-          address: userData.location?.address,
-          city: userData.location?.city,
-          street: userData.location?.street,
-          building: userData.location?.building,
-          floor: userData.location?.floor,
+          address: userData.location?.address || "",
+          city: userData.location?.city || "",
+          street: userData.location?.street || "",
+          building: userData.location?.building || "",
+          floor: userData.location?.floor || "",
           googleMapsUrl: userData.location?.googleMapsUrl || "",
         });
 
@@ -86,7 +105,7 @@ const useUserForm = ({
     };
 
     loadUserData();
-  }, [isEditMode, userId, fetchUserById, reset, setUserStatus, setApiError, showErrorToast]);
+  }, [isEditMode, userId, fetchUserById, reset, showErrorToast]);
 
   const validateBundleLocations = useCallback(() => {
     const bundleErrors = {};
@@ -155,7 +174,7 @@ const useUserForm = ({
     }
     setFormData(data);
     setShowSaveConfirm(true);
-  }, [validateBundleLocations, showErrorToast, setValidationErrors, setApiError, setFormData, setShowSaveConfirm, clearErrors]);
+  }, [validateBundleLocations, showErrorToast, clearErrors]);
 
   const onSubmit = useCallback(async () => {
     setShowSaveConfirm(false);
@@ -168,11 +187,15 @@ const useUserForm = ({
          return;
     }
 
+    const combinedPhone = (formData.areaCode && formData.phoneNumber)
+                          ? `${formData.areaCode}${formData.phoneNumber}`
+                          : null;
+
     const userPayload = {
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
-      phone: formData.phone,
+      phone: combinedPhone,
       landLine: formData.landLine || null,
       status: userStatus,
       location: {
@@ -230,7 +253,6 @@ const useUserForm = ({
       navigate(`/users/${response.userId || userId}`);
 
     } catch (error) {
-      console.error("Submission error:", error);
       if (error.response?.data?.errors) {
         let hasRHFError = false;
         let hasBundleError = false;
@@ -247,12 +269,16 @@ const useUserForm = ({
                  }));
                  hasBundleError = true;
               } else {
-                 console.warn(`Server error for bundle index ${index} not found in state. Error: ${err.message}`);
+                 setApiError(prev => `${prev} Server error for bundle: ${err.field} - ${err.message}. `);
               }
            } else if (err.field.startsWith('location.')) {
               const RHFField = err.field.split('.')[1];
               setError(RHFField, { type: 'server', message: err.message });
               hasRHFError = true;
+           }
+           else if (err.field === "areaCode" || err.field === "phoneNumber") {
+             setError(err.field, { type: "server", message: err.message });
+             hasRHFError = true;
            }
             else {
              setError(err.field, {
@@ -262,15 +288,19 @@ const useUserForm = ({
              hasRHFError = true;
            }
         });
+
         if (hasRHFError && !hasBundleError) {
             showErrorToast("Please correct the highlighted form errors.");
         } else if (hasBundleError && !hasRHFError) {
             showErrorToast("Please correct errors in Bundle Subscriptions.");
         } else if (hasBundleError && hasRHFError) {
             showErrorToast("Please correct errors in the form and Bundle Subscriptions.");
-        } else {
-            setApiError(error.response.data.message || "Validation errors occurred. Please check your input.");
-            showErrorToast(error.response.data.message || "Validation errors occurred.");
+        } else if (!hasRHFError && !hasBundleError && error.response.data.message) {
+            setApiError(error.response.data.message);
+            showErrorToast(error.response.data.message);
+        } else if (!hasRHFError && !hasBundleError) {
+            setApiError("Validation errors occurred. Please check your input.");
+            showErrorToast("Validation errors occurred. Please check your input.");
         }
 
       } else {
@@ -294,7 +324,6 @@ const useUserForm = ({
     showInfoToast,
     setError,
     validateBundleLocations,
-    setValidationErrors,
     refreshPayments,
   ]);
 
@@ -308,10 +337,13 @@ const useUserForm = ({
         urlToOpen = existingUrl;
     }
     else {
-        const { address, city } = locationData;
+        const { address, city, street, building } = locationData;
         const queryParts = [];
-        if (address) queryParts.push(address);
-        if (city) queryParts.push(city);
+        if (street && building && city) queryParts.push(`${building} ${street}`, city);
+        else if (street && city) queryParts.push(street, city);
+        else if (address && city) queryParts.push(address, city);
+        else if (address) queryParts.push(address);
+        else if (city) queryParts.push(city);
 
         const queryString = queryParts.join(', ');
 
@@ -335,9 +367,11 @@ const useUserForm = ({
     const {
         address,
         city,
+        street,
+        building,
         googleMapsUrl
     } = getValues();
-    const primaryLocationData = { address, city };
+    const primaryLocationData = { address, city, street, building };
     openGoogleMaps(primaryLocationData, googleMapsUrl);
   }, [getValues, openGoogleMaps]);
 
@@ -349,6 +383,7 @@ const useUserForm = ({
         address: bundle.address,
         city: bundle.city,
         street: bundle.street,
+        building: bundle.building,
       };
       openGoogleMaps(bundleLocationData, bundle.googleMapsUrl);
     }
@@ -420,7 +455,7 @@ const useUserForm = ({
   }, []);
 
   const toggleAccordion = useCallback((key) => {
-    setActiveAccordionKey(prev => prev === key ? null : key.toString());
+    setActiveAccordionKey(prev => prev === key ? null : String(key));
   }, []);
 
   const confirmRemoveBundle = useCallback((tempId) => {
@@ -459,13 +494,13 @@ const useUserForm = ({
 
     setValidationErrors(prevErrors => {
       const newErrors = { ...prevErrors };
-      const fieldsToClear = ['address', 'city', 'street', 'building', 'googleMapsUrl'];
-      fieldsToClear.forEach(field => {
+      const fieldsToClearForBundle = ['address', 'city', 'street', 'building', 'floor', 'googleMapsUrl'];
+      fieldsToClearForBundle.forEach(field => {
           const primaryValue = primaryLocationValues[field];
-          if (primaryValue) {
+          const isOptionalAndEmpty = (field === 'floor' || field === 'googleMapsUrl') && !primaryValue;
+
+          if (primaryValue || isOptionalAndEmpty) {
              delete newErrors[`${field}-${bundleTempId}`];
-          } else if (field === 'googleMapsUrl' && !primaryValue) {
-            delete newErrors[`${field}-${bundleTempId}`];
           }
       });
       return newErrors;

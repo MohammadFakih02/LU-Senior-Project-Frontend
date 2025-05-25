@@ -11,6 +11,7 @@ import ConfirmationModal from "../components/userform/ConfirmationModal";
 import "./styles/UserForm.css";
 
 const generalUrlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+const MAX_USER_BUNDLES = 10; // Define the maximum number of bundles a user can have
 
 const UserForm = () => {
   const {
@@ -20,7 +21,7 @@ const UserForm = () => {
     updateUser,
     fetchUserById,
     showErrorToast,
-    showWarningToast,
+    showWarningToast, // Already available from AppContext
     showInfoToast,
     refreshPayments,
   } = useContext(AppContext);
@@ -34,7 +35,8 @@ const UserForm = () => {
          firstName: '',
          lastName: '',
          email: '',
-         phone: '',
+         areaCode: '',
+         phoneNumber: '',
          landLine: '',
          address: '',
          city: '',
@@ -53,7 +55,22 @@ const UserForm = () => {
       maxLength: { value: 60, message: 'Email must be at most 60 characters' },
       pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Invalid email address' }
     },
-    phone: { required: 'Phone number is required', maxLength: { value: 45, message: 'Phone number must be at most 45 characters' } },
+    areaCode: {
+      required: 'Area code is required',
+      pattern: {
+        value: /^\+\d{1,3}$/,
+        message: 'Invalid area code (e.g., +1, +44, +972)',
+      },
+      maxLength: { value: 4, message: 'Area code must be at most 4 characters' }
+    },
+    phoneNumber: {
+      required: 'Phone number is required',
+      pattern: {
+        value: /^\d+$/,
+        message: 'Phone number must contain only digits',
+      },
+      maxLength: { value: 40, message: 'Phone number must be at most 40 characters' }
+    },
     landLine: { maxLength: { value: 45, message: 'Landline must be at most 45 characters' } },
   };
 
@@ -77,7 +94,7 @@ const UserForm = () => {
 
   const {
     apiError,
-    selectedBundles,
+    selectedBundles, // We'll use selectedBundles.length to check the current count
     isLoading,
     activeAccordionKey,
     showDeleteConfirm,
@@ -113,6 +130,8 @@ const UserForm = () => {
     navigate,
     getValues,
     refreshPayments,
+    // MAX_USER_BUNDLES could also be passed to useUserForm if handleAddBundle logic resides there
+    // and needs to be aware of the limit internally.
   });
 
   if (isLoading || bundlesLoading) {
@@ -174,14 +193,14 @@ const UserForm = () => {
           )}
 
           <Form onSubmit={handleSubmit(
-            (data) => { // onValid
+            (data) => {
               console.log("RHF: Form is valid. Data:", data);
-              console.log("RHF: formState.errors at validation success:", formState.errors); 
+              console.log("RHF: formState.errors at validation success:", formState.errors);
               prepareSubmit(data);
             },
-            (errorPayload) => { // onInvalid
+            (errorPayload) => {
               console.log("RHF: Form is invalid. Errors from RHF:", errorPayload);
-              console.log("RHF: formState.errors at validation failure:", formState.errors); 
+              console.log("RHF: formState.errors at validation failure:", formState.errors);
               showErrorToast("Please correct the highlighted form errors.");
             }
           )}>
@@ -220,6 +239,8 @@ const UserForm = () => {
               handleBundleStatusChange={handleBundleStatusChange}
               toggleAccordion={toggleAccordion}
               renderBundleLocationFields={renderBundleLocationFields}
+              maxUserBundles={MAX_USER_BUNDLES} // Pass the limit
+              showWarningToast={showWarningToast} // Pass the toast function
             />
 
             <div className="d-flex justify-content-end mt-4">

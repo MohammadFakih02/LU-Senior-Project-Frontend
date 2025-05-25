@@ -1,4 +1,4 @@
-import { Accordion, Badge, Button, Form, Row, Col } from "react-bootstrap";
+import { Accordion, Badge, Button, Form, Row, Col, Alert } from "react-bootstrap"; // Added Alert
 import BundleCard from "../BundleCard";
 
 const BundleSubscriptionsSection = ({
@@ -10,12 +10,32 @@ const BundleSubscriptionsSection = ({
   confirmRemoveBundle,
   handleBundleStatusChange,
   toggleAccordion,
-  renderBundleLocationFields
+  renderBundleLocationFields,
+  maxUserBundles, // New prop
+  showWarningToast, // New prop
 }) => {
+
+  const handleAddBundleClick = (bundleId) => {
+    if (selectedBundles.length >= maxUserBundles) {
+      showWarningToast(`A user cannot have more than ${maxUserBundles} bundle subscriptions.`);
+    } else {
+      handleAddBundle(bundleId);
+    }
+  };
+
+  const isBundleLimitReached = selectedBundles.length >= maxUserBundles;
 
   return (
     <div className="mb-4">
       <h4 className="mb-3">Bundle Subscriptions</h4>
+      <p className="text-muted">
+        Configured bundles: {selectedBundles.length} / {maxUserBundles}
+      </p>
+      {isBundleLimitReached && (
+        <Alert variant="warning" className="mb-3">
+          Maximum number of bundle subscriptions ({maxUserBundles}) reached. Remove an existing bundle to add a new one.
+        </Alert>
+      )}
 
       <div className="mb-4">
         <Form.Label>Available Bundles</Form.Label>
@@ -25,9 +45,10 @@ const BundleSubscriptionsSection = ({
               <BundleCard
                 bundle={bundle}
                 variant="small"
-                onClick={() => handleAddBundle(bundle.bundleId)}
+                onClick={() => handleAddBundleClick(bundle.bundleId)}
                 isClicked={clickedBundle === bundle.bundleId}
                 showActions={false}
+                disabled={isBundleLimitReached} // Optionally disable card when limit is reached
               />
             </Col>
           ))}

@@ -1,12 +1,12 @@
-import { useContext, useState } from 'react'; // Added useState
+import { useContext, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tooltip } from 'react-tippy';
 import 'react-tippy/dist/tippy.css';
-import { Badge, Button, Alert, Modal } from 'react-bootstrap'; // Added Modal
+import { Badge, Button, Alert, Modal } from 'react-bootstrap';
 import { useTable } from '../hooks/useTable';
 import { DataTable } from '../components/tables/DataTable';
 import AppContext from '../context/AppContext';
-import { ArrowClockwise, Trash } from 'react-bootstrap-icons'; // Added Trash
+import { ArrowClockwise, Trash } from 'react-bootstrap-icons';
 
 const TruncatedText = ({ text, maxWidth = 150 }) => (
   <Tooltip title={text} position="top" trigger="mouseenter" animation="scale" arrow={true}>
@@ -17,7 +17,7 @@ const TruncatedText = ({ text, maxWidth = 150 }) => (
 );
 
 const Users = () => {
-  const { users, usersLoading, usersError, refreshUsers, deleteUser, showErrorToast } = useContext(AppContext); // Added deleteUser, showErrorToast
+  const { users, usersLoading, usersError, refreshUsers, deleteUser } = useContext(AppContext);
   const { tableState, tableHandlers } = useTable({
     status: [],
     city: [],
@@ -27,9 +27,8 @@ const Users = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const currentFlow = queryParams.get('flow'); 
+  const currentFlow = queryParams.get('flow');
 
-  // State for confirmation modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -49,11 +48,10 @@ const Users = () => {
     setIsDeleting(true);
     try {
       await deleteUser(userToDelete.id);
-      // Success toast is handled by deleteUser in AppContext
       handleCloseDeleteModal();
-    } catch (error) {
+    } catch { // Omitting the error parameter as it's not used
       // Error toast is handled by deleteUser in AppContext
-      // console.error("Failed to delete user from Users.jsx:", error);
+      // If you needed to log the error here, you'd use: catch (e) { console.error(e); }
     } finally {
       setIsDeleting(false);
     }
@@ -187,9 +185,9 @@ const Users = () => {
                 <Button variant="warning" size="sm" as={Link} to={`/users/edit/${user.id}`}>
                   Edit
                 </Button>
-                <Button 
-                  variant="danger" 
-                  size="sm" 
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={() => handleShowDeleteModal(user)}
                   disabled={isDeleting && userToDelete?.id === user.id}
                 >
@@ -201,7 +199,6 @@ const Users = () => {
         )}
       />
 
-      {/* Delete Confirmation Modal */}
       <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
         <Modal.Header closeButton>
           <Modal.Title>Confirm Deletion</Modal.Title>
