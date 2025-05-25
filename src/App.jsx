@@ -9,12 +9,17 @@ import Payments from './pages/Payments';
 import NotFound from './pages/NotFound';
 
 import LoginPage from './pages/LoginPage';
+import ChangePasswordPage from './pages/ChangePasswordPage'; // Import the new page
 import ProtectedRoute from './components/ProtectedRoute';
 
 const router = createHashRouter([
   {
     path: '/login',
     element: <LoginPage />,
+  },
+  {
+    path: '/change-password',
+    element: <ChangePasswordPage />,
   },
   {
     element: <ProtectedRoute />,
@@ -60,12 +65,16 @@ const router = createHashRouter([
             element: <Payments />,
           },
           {
-            path: '*',
+            path: '*', // This should ideally be the last route in this group
             element: <NotFound />,
           },
         ],
       },
     ],
+  },
+   {
+    path: '*',
+    element: <NotFound />,
   },
 ]);
 

@@ -12,11 +12,12 @@ import {
   X,
   ArrowClockwise,
   PersonCircle,
-  BoxArrowRight
+  BoxArrowRight,
+  KeyFill // Added KeyFill
 } from "react-bootstrap-icons";
 import 'react-toastify/dist/ReactToastify.css';
 import AppContext from '../context/AppContext';
-import './styles/LayoutSidebar.css';
+import './styles/LayoutSidebar.css'; // Assuming you have this CSS file
 
 const LayoutSidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -67,7 +68,6 @@ const LayoutSidebar = () => {
         setShowSettingsPanel(false); 
       } else {
         setSidebarOpen(true);
-        // On desktop, settings panel visibility is independent of sidebar becoming open
       }
     };
 
@@ -166,6 +166,14 @@ const LayoutSidebar = () => {
     navigate('/login', { replace: true });
   };
 
+  const handleChangePassword = () => {
+    navigate('/change-password');
+    if (isMobile) { // Close sidebar on mobile after navigation
+        setSidebarOpen(false);
+        setShowSettingsPanel(false);
+    }
+  };
+
   return (
     <Container fluid className="px-0">
       <Row className="g-0">
@@ -216,6 +224,10 @@ const LayoutSidebar = () => {
                     </Stack>
                   </Dropdown.Toggle>
                   <Dropdown.Menu variant="dark" className="w-100">
+                    <Dropdown.Item onClick={handleChangePassword}>
+                      <KeyFill className="me-2" /> Change Password
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
                     <Dropdown.Item onClick={handleLogout}>
                       <BoxArrowRight className="me-2" /> Logout
                     </Dropdown.Item>
@@ -416,14 +428,20 @@ const LayoutSidebar = () => {
                 <h4 className="m-0 text-capitalize">
                   {location.pathname.split('/').filter(Boolean)[0] || 'Dashboard'}
                 </h4>
-                 {currentUser ? (
+                 {currentUser ? ( // This is the mobile user dropdown
                     <Dropdown>
                       <Dropdown.Toggle variant="link" id="dropdown-mobile-user" className="p-0 text-dark">
                         <PersonCircle size={24} />
                       </Dropdown.Toggle>
                       <Dropdown.Menu align="end">
                         <Dropdown.Header>{currentUser.username}</Dropdown.Header>
-                        <Dropdown.Item onClick={handleLogout}><BoxArrowRight className="me-2" /> Logout</Dropdown.Item>
+                        <Dropdown.Item onClick={handleChangePassword}>
+                            <KeyFill className="me-2" /> Change Password
+                        </Dropdown.Item>
+                        <Dropdown.Divider />
+                        <Dropdown.Item onClick={handleLogout}>
+                            <BoxArrowRight className="me-2" /> Logout
+                        </Dropdown.Item>
                       </Dropdown.Menu>
                     </Dropdown>
                   ) : (
