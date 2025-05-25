@@ -1,7 +1,6 @@
-// LayoutSidebar.jsx
 import { useState, useEffect, useContext } from "react";
-import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner } from "react-bootstrap";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
+import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner, Dropdown } from "react-bootstrap";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { 
   PeopleFill, 
   BoxSeam, 
@@ -11,7 +10,9 @@ import {
   LightningChargeFill,
   List,
   X,
-  ArrowClockwise
+  ArrowClockwise,
+  PersonCircle,
+  BoxArrowRight
 } from "react-bootstrap-icons";
 import 'react-toastify/dist/ReactToastify.css';
 import AppContext from '../context/AppContext';
@@ -21,32 +22,34 @@ const LayoutSidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const { 
+    currentUser,
+    logoutUser,
     appSettings, 
     updateAppSettings, 
     appSettingsLoading,
     appSettingsError, 
+    refreshAppSettings,
     showSuccessToast: contextShowSuccessToast,
     showErrorToast: contextShowErrorToast,
-    showInfoToast: contextShowInfoToast, // Added for Refresh All feedback
+    showInfoToast: contextShowInfoToast,
     usersError,
     paymentsError,
     bundlesError,
     refreshUsers,
     refreshPayments,
     refreshBundles,
-    refreshAppSettings, 
   } = useContext(AppContext);
 
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [stagedSettings, setStagedSettings] = useState({ ...appSettings });
   const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [isRetryingLoadSettings, setIsRetryingLoadSettings] = useState(false); // For retry button in panel
-  const [isReloadingSettingsOnly, setIsReloadingSettingsOnly] = useState(false); // For global alert button
+  const [isRetryingLoadSettings, setIsRetryingLoadSettings] = useState(false);
+  const [isReloadingSettingsOnly, setIsReloadingSettingsOnly] = useState(false);
 
 
-  // Check for any data loading errors, including app settings
   const dataErrors = [usersError, paymentsError, bundlesError, appSettingsError].filter(Boolean);
   const hasMultipleErrors = dataErrors.length >= 2;
   
@@ -115,7 +118,6 @@ const LayoutSidebar = () => {
     try {
       const success = await updateAppSettings(stagedSettings); 
       if (success) {
-        setShowSettingsPanel(false); 
         contextShowSuccessToast('Settings saved successfully!');
       }
     } catch (error) {
@@ -148,35 +150,59 @@ const LayoutSidebar = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await logoutUser();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <Container fluid className="px-0">
       <Row className="g-0">
-        {/* Sidebar Column */}
         <Col 
           md={3} 
           lg={2} 
           className={`min-vh-100 sticky-top bg-dark text-white p-0 sidebar-column ${sidebarOpen ? 'open' : ''}`}
         >
           <div className="d-flex flex-column h-100">
-            {/* Sidebar Header */}
-            <div className="p-4 bg-black bg-opacity-50 border-bottom border-secondary position-relative">
-              <Stack direction="horizontal" gap={2} className="align-items-center">
-                <LightningChargeFill className="text-warning fs-4" />
-                <span className="fw-bold">DashBoard</span>
+            <div className="p-3 bg-black bg-opacity-50 border-bottom border-secondary position-relative">
+              <Stack direction="horizontal" gap={2} className="align-items-center justify-content-between">
+                <Stack direction="horizontal" gap={2} className="align-items-center">
+                  <LightningChargeFill className="text-warning fs-4" />
+                  <span className="fw-bold">DashBoard</span>
+                </Stack>
+                {isMobile && (
+                  <Button 
+                    variant="link" 
+                    className="text-white p-1"
+                    onClick={toggleSidebar}
+                    aria-label="Close sidebar"
+                  >
+                    <X size={28} />
+                  </Button>
+                )}
               </Stack>
-              {isMobile && (
-                <Button 
-                  variant="link" 
-                  className="position-absolute end-0 top-50 translate-middle-y text-white p-2"
-                  onClick={toggleSidebar}
-                  aria-label="Close sidebar"
-                >
-                  <X size={28} />
-                </Button>
+              {currentUser && (
+                <Dropdown className="mt-2 w-100">
+                  <Dropdown.Toggle 
+                    variant="outline-light" 
+                    id="dropdown-user" 
+                    className="d-flex align-items-center justify-content-between w-100 text-start"
+                    size="sm"
+                  >
+                    <Stack direction="horizontal" gap={2} className="align-items-center">
+                      <PersonCircle size={18} />
+                      <span className="text-truncate" style={{maxWidth: "100px"}}>{currentUser.username}</span>
+                    </Stack>
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu variant="dark" className="w-100">
+                    <Dropdown.Item onClick={handleLogout}>
+                      <BoxArrowRight className="me-2" /> Logout
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
               )}
             </div>
 
-            {/* Scrollable area for Navigation and Settings Panel */}
             <div className="flex-grow-1 overflow-auto sidebar-nav-wrapper">
               <Nav className="flex-column p-3">
                 <NavLink 
@@ -219,7 +245,6 @@ const LayoutSidebar = () => {
                 </NavLink>
               </Nav>
 
-              {/* Settings Panel - Animated */}
               <div className={`settings-panel-wrapper ${showSettingsPanel ? 'open' : ''}`}>
                 <hr className="border-secondary mx-3 my-2" />
                 <div className="settings-panel px-3 pb-3">
@@ -235,7 +260,7 @@ const LayoutSidebar = () => {
                     </Button>
                   </div>
                   
-                  {appSettingsLoading ? (
+                  {appSettingsLoading && !appSettingsError ? (
                     <div className="text-center p-3">
                       <Spinner animation="border" variant="light" size="sm" />
                       <p className="small mt-2 mb-0 text-white-50">Loading settings...</p>
@@ -243,13 +268,13 @@ const LayoutSidebar = () => {
                   ) : appSettingsError ? (
                     <Alert variant="danger" className="text-center small">
                       <p className="mb-2">{appSettingsError}</p>
-                      <Button 
+                       <Button 
                         variant="danger" 
                         size="sm" 
                         onClick={() => handleReloadSettings(setIsRetryingLoadSettings)}
-                        disabled={isRetryingLoadSettings}
+                        disabled={isRetryingLoadSettings || appSettingsLoading}
                       >
-                        {isRetryingLoadSettings ? (
+                        {isRetryingLoadSettings || appSettingsLoading ? (
                           <>
                             <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
                             <span className="visually-hidden ms-1">Retrying...</span>
@@ -316,7 +341,7 @@ const LayoutSidebar = () => {
                           variant="primary" 
                           size="sm" 
                           onClick={handleSaveSettings}
-                          disabled={isSavingSettings}
+                          disabled={isSavingSettings || appSettingsLoading}
                         >
                           {isSavingSettings ? (
                             <>
@@ -334,7 +359,6 @@ const LayoutSidebar = () => {
               </div>
             </div> 
             
-            {/* Sidebar Footer - Settings Trigger */}
             {!showSettingsPanel && (
               <div className="p-3 bg-black bg-opacity-50 border-top border-secondary settings-trigger-footer">
                 <div
@@ -354,12 +378,10 @@ const LayoutSidebar = () => {
           </div> 
         </Col>
 
-        {/* Main Content Column */}
         <Col 
           className={`d-flex flex-column bg-light-subtle main-content-column ${isMobile && sidebarOpen ? 'sidebar-open-overlay' : ''}`}
           onClick={isMobile && sidebarOpen ? handleOverlayClick : undefined}
         >
-          {/* Mobile Header container */}
           {isMobile && (
             <div className="px-3 pt-3 px-md-4 pt-md-4">
               <div className="d-flex justify-content-between align-items-center">
@@ -372,14 +394,25 @@ const LayoutSidebar = () => {
                   <List size={20} />
                 </Button>
                 <h4 className="m-0 text-capitalize">
-                  {location.pathname.split('/')[1] || 'Dashboard'}
+                  {location.pathname.split('/').filter(Boolean)[0] || 'Dashboard'}
                 </h4>
-                <div style={{ width: '40px' }}></div> {/* Spacer to balance the header */}
+                 {currentUser ? (
+                    <Dropdown>
+                      <Dropdown.Toggle variant="link" id="dropdown-mobile-user" className="p-0 text-dark">
+                        <PersonCircle size={24} />
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu align="end">
+                        <Dropdown.Header>{currentUser.username}</Dropdown.Header>
+                        <Dropdown.Item onClick={handleLogout}><BoxArrowRight className="me-2" /> Logout</Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown>
+                  ) : (
+                     <div style={{ width: '40px' }}></div> 
+                  )}
               </div>
             </div>
           )}
           
-          {/* Alert container for multiple errors */}
           {hasMultipleErrors && (
             <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'}`}>
               <Alert variant="danger" className="mb-0">
@@ -397,19 +430,18 @@ const LayoutSidebar = () => {
             </div>
           )}
 
-          {/* Alert for App Settings load failure (if not covered by multiple errors) */}
           {appSettingsError && !appSettingsLoading && !hasMultipleErrors && (
             <div className={`px-3 ${isMobile ? 'pt-2' : 'pt-3'} px-md-4 ${isMobile ? 'pt-md-2' : 'pt-md-4'} ${hasMultipleErrors ? 'mt-3' : ''}`}>
               <Alert variant="warning" className="mb-0">
                 <div className="d-flex justify-content-between align-items-center">
                   <span>{appSettingsError}</span>
                   <Button 
-                    variant="warning" // Match Alert variant
+                    variant="warning" 
                     onClick={() => handleReloadSettings(setIsReloadingSettingsOnly)}
-                    disabled={isReloadingSettingsOnly}
+                    disabled={isReloadingSettingsOnly || appSettingsLoading}
                     className="d-flex align-items-center gap-1"
                   >
-                    {isReloadingSettingsOnly ? (
+                    {isReloadingSettingsOnly || appSettingsLoading ? (
                       <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
                     ) : (
                       <ArrowClockwise size={16}/>
@@ -421,7 +453,6 @@ const LayoutSidebar = () => {
             </div>
           )}
           
-          {/* The white content card */}
           <div className="bg-white rounded-2 shadow-sm p-3 p-md-4 flex-grow-1 m-3 m-md-4 main-content-card"> 
             <Outlet />
           </div>
