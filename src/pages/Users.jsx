@@ -1,12 +1,12 @@
-import { useContext } from 'react';
+import { useContext, useState } from 'react'; // Added useState
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Tooltip } from 'react-tippy';
 import 'react-tippy/dist/tippy.css';
-import { Badge, Button, Alert } from 'react-bootstrap';
+import { Badge, Button, Alert, Modal } from 'react-bootstrap'; // Added Modal
 import { useTable } from '../hooks/useTable';
 import { DataTable } from '../components/tables/DataTable';
 import AppContext from '../context/AppContext';
-import { ArrowClockwise } from 'react-bootstrap-icons';
+import { ArrowClockwise, Trash } from 'react-bootstrap-icons'; // Added Trash
 
 const TruncatedText = ({ text, maxWidth = 150 }) => (
   <Tooltip title={text} position="top" trigger="mouseenter" animation="scale" arrow={true}>
@@ -17,7 +17,7 @@ const TruncatedText = ({ text, maxWidth = 150 }) => (
 );
 
 const Users = () => {
-  const { users, usersLoading, usersError, refreshUsers } = useContext(AppContext);
+  const { users, usersLoading, usersError, refreshUsers, deleteUser, showErrorToast } = useContext(AppContext); // Added deleteUser, showErrorToast
   const { tableState, tableHandlers } = useTable({
     status: [],
     city: [],
@@ -27,7 +27,38 @@ const Users = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  const currentFlow = queryParams.get('flow'); // Will be "CP" or null
+  const currentFlow = queryParams.get('flow'); 
+
+  // State for confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleShowDeleteModal = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setUserToDelete(null);
+    setShowDeleteModal(false);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deleteUser(userToDelete.id);
+      // Success toast is handled by deleteUser in AppContext
+      handleCloseDeleteModal();
+    } catch (error) {
+      // Error toast is handled by deleteUser in AppContext
+      // console.error("Failed to delete user from Users.jsx:", error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
 
   const filterConfig = [
     {
@@ -64,7 +95,7 @@ const Users = () => {
   const tableData = users;
 
   return (
-    <> {/* Removed wrapper div with p-3, LayoutSidebar's card provides padding */}
+    <>
       {currentFlow === 'CP' && (
         <Alert variant="info" className="mb-3">
           You are in <strong>Create Payment mode</strong>. Double-click a user in the table below or use the "Select" button to view their details and select a bundle subscription for payment.
@@ -107,10 +138,7 @@ const Users = () => {
             key={user.id}
             onDoubleClick={() => {
               if (currentFlow === 'CP') {
-                navigate(`/users/${user.id}?flow=CP`, {
-                  state: {
-                  }
-                });
+                navigate(`/users/${user.id}?flow=CP`);
               }
             }}
             style={{ cursor: currentFlow === 'CP' ? 'pointer' : 'default' }}
@@ -159,11 +187,39 @@ const Users = () => {
                 <Button variant="warning" size="sm" as={Link} to={`/users/edit/${user.id}`}>
                   Edit
                 </Button>
+                <Button 
+                  variant="danger" 
+                  size="sm" 
+                  onClick={() => handleShowDeleteModal(user)}
+                  disabled={isDeleting && userToDelete?.id === user.id}
+                >
+                  <Trash />
+                </Button>
               </div>
             </td>
           </tr>
         )}
       />
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={showDeleteModal} onHide={handleCloseDeleteModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Deletion</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to delete user{' '}
+          <strong>{userToDelete && `${userToDelete.firstName} ${userToDelete.lastName}`}</strong> (ID: {userToDelete?.id})?
+          This action cannot be undone.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseDeleteModal} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirmDelete} disabled={isDeleting}>
+            {isDeleting ? 'Deleting...' : 'Delete User'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 };

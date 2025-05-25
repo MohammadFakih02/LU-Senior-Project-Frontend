@@ -295,37 +295,29 @@ export const AppProvider = ({ children }) => {
   };
 
   const changeAdminPassword = async (oldPassword, newPassword, confirmNewPassword) => {
-    console.log("AppContext: changeAdminPassword called with", { oldPassword: "...", newPassword: "...", confirmNewPassword: "..." }); // Mask passwords in log
     if (!isAuthenticated) {
       showErrorToast("Login required to change password.");
-      console.log("AppContext: Not authenticated for password change");
       return false;
     }
     if (newPassword !== confirmNewPassword) {
       showErrorToast("New password and confirmation password do not match.");
-      console.log("AppContext: New passwords do not match in AppContext check");
       return false;
     }
     if (!newPassword || newPassword.length < 6) { 
         showErrorToast("New password must be at least 6 characters long.");
-        console.log("AppContext: New password too short in AppContext check");
         return false;
     }
 
     try {
-      console.log("AppContext: Attempting API call to change password");
       await axios.put(
         `${CONFIG_API_BASE_URL}/security/password`,
         { oldPassword, newPassword },
         { withCredentials: true }
       );
       showSuccessToast("Password changed successfully!");
-      console.log("AppContext: Password change API call successful");
       return true;
     } catch (error) {
-      console.error("AppContext: Change Password API Error:", error.response?.data || error.message, error.response);
       const errorMessage = error.response?.data?.message || error.response?.data || "Failed to change password.";
-      // Ensure errorMessage is a string, as toastr expects a string.
       const displayMessage = typeof errorMessage === 'string' ? errorMessage : "Password change failed. Please try again.";
       showErrorToast(displayMessage);
       return false;
@@ -493,6 +485,25 @@ export const AppProvider = ({ children }) => {
       throw error.response?.data || error; 
     }
   };
+
+  const deleteUser = async (userId) => {
+    if (!isAuthenticated) { 
+      showErrorToast("Login required."); 
+      throw new Error("Login required"); 
+    }
+    try {
+      await axios.delete(`${API_BASE_URL}/api/users/${userId}`, { withCredentials: true });
+      await refreshUsers({ showToast: false }); 
+      showSuccessToast('User deleted successfully');
+      return true;
+    } catch (error) { 
+      const errorMessage = error.response?.data?.message || 'Failed to delete user';
+      showErrorToast(errorMessage);
+      console.error('Delete User API Error:', error.response?.data || error);
+      throw error.response?.data || error; 
+    }
+  };
+
   const fetchUserById = async (userId) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
@@ -570,7 +581,7 @@ export const AppProvider = ({ children }) => {
       checkAuthStatus,
       changeAdminPassword,
 
-      users, usersLoading, usersError, refreshUsers, createUser, updateUser, fetchUserById,
+      users, usersLoading, usersError, refreshUsers, createUser, updateUser, deleteUser, fetchUserById,
       payments, paymentsLoading, paymentsError, refreshPayments, updatePaymentStatus, updatePayment, createPayment, deletePayment,
       bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle,
       
