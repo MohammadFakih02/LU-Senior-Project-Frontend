@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext } from "react";
-import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner, Dropdown } from "react-bootstrap";
+import { Col, Container, Row, Nav, Stack, Button, Form, Alert, Spinner } from "react-bootstrap";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { 
   PeopleFill, 
@@ -16,11 +16,13 @@ import {
 import 'react-toastify/dist/ReactToastify.css';
 import AppContext from '../context/AppContext';
 import './styles/LayoutSidebar.css';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const LayoutSidebar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,12 +87,14 @@ const LayoutSidebar = () => {
     setSidebarOpen(newSidebarState);
     if (!newSidebarState && isMobile) { 
       setShowSettingsPanel(false); 
+      setShowChangePasswordModal(false);
     }
   };
 
   const handleOpenSettingsPanel = () => {
     setStagedSettings({ ...appSettings }); 
     setShowSettingsPanel(true);
+    setShowChangePasswordModal(false);
     if (isMobile && !sidebarOpen) { 
         setSidebarOpen(true); 
     }
@@ -142,6 +146,7 @@ const LayoutSidebar = () => {
     if (isMobile && sidebarOpen && e.target === e.currentTarget) {
       setSidebarOpen(false); 
       setShowSettingsPanel(false);
+      setShowChangePasswordModal(false);
     }
   };
 
@@ -163,8 +168,16 @@ const LayoutSidebar = () => {
     navigate('/login', { replace: true });
   };
 
-  const handleChangePassword = () => {
-    navigate('/change-password');
+  const handleOpenChangePasswordModal = () => {
+    setShowSettingsPanel(false);
+    setShowChangePasswordModal(true);
+    if (isMobile && !sidebarOpen) {
+        setSidebarOpen(true);
+    }
+  };
+
+  const handleCloseChangePasswordModal = () => {
+    setShowChangePasswordModal(false);
   };
 
   return (
@@ -383,10 +396,10 @@ const LayoutSidebar = () => {
 
                   <div
                     className="nav-link text-white d-flex align-items-center gap-2 rounded-1 p-2 mb-2 inactive-nav-item bg-dark bg-opacity-25 cursor-pointer"
-                    onClick={handleChangePassword}
+                    onClick={handleOpenChangePasswordModal}
                     role="button"
                     tabIndex={0}
-                    onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleChangePassword()}
+                    onKeyPress={(e) => (e.key === 'Enter' || e.key === ' ') && handleOpenChangePasswordModal()}
                   >
                     <KeyFill style={{ fontSize: '1rem' }} />
                     <span style={{ fontSize: '0.9rem' }}>Change Password</span>
@@ -474,6 +487,13 @@ const LayoutSidebar = () => {
           </div>
         </Col>
       </Row>
+
+      {currentUser && (
+        <ChangePasswordModal
+          show={showChangePasswordModal}
+          handleClose={handleCloseChangePasswordModal}
+        />
+      )}
     </Container>
   );
 };

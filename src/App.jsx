@@ -10,19 +10,12 @@ import Payments from './pages/Payments';
 import NotFound from './pages/NotFound';
 
 import LoginPage from './pages/LoginPage';
-import ChangePasswordPage from './pages/ChangePasswordPage'; // Import the new page
 import ProtectedRoute from './components/ProtectedRoute';
-// Note: 'react-toastify/dist/ReactToastify.css' is imported in main.jsx,
-// so it doesn't need to be imported again here.
 
 const router = createHashRouter([
   {
     path: '/login',
     element: <LoginPage />,
-  },
-  {
-    path: '/change-password',
-    element: <ChangePasswordPage />,
   },
   {
     element: <ProtectedRoute />,
