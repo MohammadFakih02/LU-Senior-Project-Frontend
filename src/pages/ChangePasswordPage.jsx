@@ -5,7 +5,7 @@ import { KeyFill, ArrowLeftCircleFill } from 'react-bootstrap-icons';
 import AppContext from '../context/AppContext';
 
 const ChangePasswordPage = () => {
-  const { changeAdminPassword, isAuthenticated } = useContext(AppContext); // Added isAuthenticated for quick check
+  const { changeAdminPassword, isAuthenticated } = useContext(AppContext);
   const navigate = useNavigate();
 
   const [oldPassword, setOldPassword] = useState('');
@@ -16,54 +16,38 @@ const ChangePasswordPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // Clear previous local errors
-    console.log("ChangePasswordPage: handleSubmit called");
+    setError('');
 
     if (!isAuthenticated) {
         setError('You must be logged in to change your password.');
-        console.log("ChangePasswordPage: User not authenticated (checked on page)");
-        // Toast from AppContext will also show if changeAdminPassword is called
         return;
     }
 
     if (!oldPassword || !newPassword || !confirmNewPassword) {
         setError('All password fields are required.');
-        console.log("ChangePasswordPage: All fields are required");
         return;
     }
     if (newPassword.length < 6) {
         setError('New password must be at least 6 characters long.');
-        console.log("ChangePasswordPage: New password too short");
         return;
     }
     if (newPassword !== confirmNewPassword) {
       setError('New password and confirmation password do not match.');
-      console.log("ChangePasswordPage: New passwords do not match");
       return;
     }
 
     setIsSubmitting(true);
-    console.log("ChangePasswordPage: Calling changeAdminPassword");
-    
-    // changeAdminPassword from AppContext will show its own toasts
-    const success = await changeAdminPassword(oldPassword, newPassword, confirmNewPassword);
-    
-    console.log("ChangePasswordPage: changeAdminPassword returned", success);
-    setIsSubmitting(false);
-
-    if (success) {
+    try {
+      await changeAdminPassword(oldPassword, newPassword);
+      
       setOldPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
-      // Optional: navigate('/some-success-page'); or just rely on the success toast
-    } else {
-      // If changeAdminPassword returned false, a toast was already shown.
-      // We can set a local error for more persistent feedback if needed,
-      // but it might be redundant if the toast provided enough detail from the API.
-      // For now, we'll rely on the toast from AppContext to avoid duplicate error messages.
-      // If the API doesn't give a good message, we might add a generic one here:
-      // setError('Password change failed. Please check details and try again.');
-      console.log("ChangePasswordPage: Password change failed (success is false). Toast should have details.");
+      navigate('/users');
+    } catch (err) {
+      setError(err.message || "An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
