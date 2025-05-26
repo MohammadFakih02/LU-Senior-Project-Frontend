@@ -8,9 +8,20 @@ import UserInfoSection from "../components/userform/UserInfoSection";
 import PrimaryLocationSection from "../components/userform/PrimaryLocationSection";
 import BundleSubscriptionsSection from "../components/userform/BundleSubscriptionsSection";
 import ConfirmationModal from "../components/userform/ConfirmationModal";
+import { commonAreaCodes } from "../components/userform/formConstants"; // Import for area code validation
 import "./styles/UserForm.css";
 
-const generalUrlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+// Validation Patterns
+const namePattern = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$/;
+const emailPattern = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+const areaCodePattern = /^\+\d{1,3}$/;
+const digitsOnlyPattern = /^\d+$/;
+const optionalDigitsOnlyPattern = /^\d*$/;
+const locationAddressStreetPattern = /^[A-Za-z0-9À-ÖØ-öø-ÿ\s.,#/-]+$/;
+const locationCityPattern = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$/; // Can be same as namePattern
+const locationBuildingFloorPattern = /^[A-Za-z0-9\s-]+$/;
+const googleMapsUrlPattern = /^(https?:\/\/)?(www\.)?(google\.([a-z.]{2,6})\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)(\/.*)?$/i;
+
 const MAX_USER_BUNDLES = 10; // Define the maximum number of bundles a user can have
 
 const UserForm = () => {
@@ -48,53 +59,84 @@ const UserForm = () => {
   });
 
   const userInfoValidations = {
-    firstName: { required: 'First name is required', maxLength: { value: 45, message: 'First name must be at most 45 characters' } },
-    lastName: { required: 'Last name is required', maxLength: { value: 45, message: 'Last name must be at most 45 characters' } },
+    firstName: {
+      required: 'First name is required',
+      maxLength: { value: 45, message: 'First name must be at most 45 characters' },
+      pattern: { value: namePattern, message: 'Name can only contain letters, spaces, hyphens, and apostrophes' }
+    },
+    lastName: {
+      required: 'Last name is required',
+      maxLength: { value: 45, message: 'Last name must be at most 45 characters' },
+      pattern: { value: namePattern, message: 'Name can only contain letters, spaces, hyphens, and apostrophes' }
+    },
     email: {
       required: 'Email is required',
       maxLength: { value: 60, message: 'Email must be at most 60 characters' },
-      pattern: { value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i, message: 'Invalid email address' }
+      pattern: { value: emailPattern, message: 'Invalid email address' }
     },
     areaCode: {
       required: 'Area code is required',
       pattern: {
-        value: /^\+\d{1,3}$/,
-        message: 'Invalid area code (e.g., +1, +44, +972)',
+        value: areaCodePattern,
+        message: 'Invalid area code format (e.g., +1, +44).',
       },
-      maxLength: { value: 4, message: 'Area code must be at most 4 characters' }
+      maxLength: { value: 4, message: 'Area code must be at most 4 characters' },
+      validate: value => commonAreaCodes.some(code => code.value === value) || 'Please select a valid area code from the list.'
     },
     phoneNumber: {
       required: 'Phone number is required',
       pattern: {
-        value: /^\d+$/,
+        value: digitsOnlyPattern,
         message: 'Phone number must contain only digits',
       },
       maxLength: { value: 40, message: 'Phone number must be at most 40 characters' }
     },
-    landLine: { maxLength: { value: 45, message: 'Landline must be at most 45 characters' } },
+    landLine: {
+      maxLength: { value: 45, message: 'Landline must be at most 45 characters' },
+      pattern: { value: optionalDigitsOnlyPattern, message: 'Landline must contain only digits' }
+    },
   };
 
   const primaryLocationValidations = {
-    address: { required: "Address is required", maxLength: { value: 255, message: "Address must be at most 255 characters" } },
-    city: { required: "City is required", maxLength: { value: 45, message: "City must be at most 45 characters" } },
-    street: { required: "Street is required", maxLength: { value: 45, message: "Street must be at most 45 characters" } },
-    building: { required: "Building is required", maxLength: { value: 45, message: "Building must be at most 45 characters" } },
-    floor: { maxLength: { value: 45, message: "Floor must be at most 45 characters" } },
+    address: {
+      required: "Address is required",
+      maxLength: { value: 255, message: "Address must be at most 255 characters" },
+      pattern: { value: locationAddressStreetPattern, message: "Address can only contain letters, numbers, spaces, and .,#/-" }
+    },
+    city: {
+      required: "City is required",
+      maxLength: { value: 45, message: "City must be at most 45 characters" },
+      pattern: { value: locationCityPattern, message: "City can only contain letters, spaces, hyphens, and apostrophes" }
+    },
+    street: {
+      required: "Street is required",
+      maxLength: { value: 45, message: "Street must be at most 45 characters" },
+      pattern: { value: locationAddressStreetPattern, message: "Street can only contain letters, numbers, spaces, and .,#/-" }
+    },
+    building: {
+      required: "Building is required",
+      maxLength: { value: 45, message: "Building must be at most 45 characters" },
+      pattern: { value: locationBuildingFloorPattern, message: "Building can only contain letters, numbers, spaces, and hyphens" }
+    },
+    floor: {
+      maxLength: { value: 45, message: "Floor must be at most 45 characters" },
+      pattern: { value: locationBuildingFloorPattern, message: "Floor can only contain letters, numbers, spaces, and hyphens" }
+    },
     googleMapsUrl: {
         maxLength: {
             value: 255,
             message: "Google Maps URL must be at most 255 characters"
         },
         pattern: {
-            value: generalUrlPattern,
-            message: "Invalid URL format"
+            value: googleMapsUrlPattern,
+            message: "Invalid Google Maps URL format. Must be a valid google.com/maps, goo.gl/maps, or maps.app.goo.gl URL."
         },
     },
   };
 
   const {
     apiError,
-    selectedBundles, // We'll use selectedBundles.length to check the current count
+    selectedBundles, 
     isLoading,
     activeAccordionKey,
     showDeleteConfirm,
@@ -130,8 +172,6 @@ const UserForm = () => {
     navigate,
     getValues,
     refreshPayments,
-    // MAX_USER_BUNDLES could also be passed to useUserForm if handleAddBundle logic resides there
-    // and needs to be aware of the limit internally.
   });
 
   if (isLoading || bundlesLoading) {

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Stack } from 'react-bootstrap'; // Added Stack
 import { ShieldLockFill, LightningChargeFill } from 'react-bootstrap-icons';
 import AppContext from '../context/AppContext';
 
@@ -37,29 +37,30 @@ const LoginPage = () => {
   
   if (authLoading && !currentUser && !isAuthenticated) {
      return (
-        <Container fluid className="d-flex justify-content-center align-items-center vh-100 bg-light">
+        <Container fluid className="d-flex justify-content-center align-items-center min-vh-100 bg-light">
            <Spinner animation="border" variant="primary" />
         </Container>
      );
   }
 
   return (
-    <Container fluid className="d-flex justify-content-center align-items-center vh-100 bg-light">
-      <Row className="w-100">
-        <Col md={{ span: 6, offset: 3 }} lg={{ span: 4, offset: 4 }} sm={{ span: 10, offset: 1 }}>
-          <Card className="shadow-lg">
+    <Container fluid className="d-flex justify-content-center align-items-center min-vh-100 bg-light py-4">
+      <Row className="w-100 justify-content-center">
+        <Col xs={11} sm={9} md={7} lg={5} xl={4}>
+          <Card className="shadow-lg border-0">
             <Card.Header className="bg-dark text-white text-center py-3">
-              <h2 className="mb-0">
-                <LightningChargeFill className="me-2 text-warning" /> Admin Dashboard
-              </h2>
+              <Stack direction="horizontal" gap={2} className="justify-content-center align-items-center">
+                <LightningChargeFill className="text-warning fs-5" />
+                <span className="h5 mb-0 fw-bold">Admin Dashboard</span>
+              </Stack>
             </Card.Header>
-            <Card.Body className="p-4">
+            <Card.Body className="p-4 p-lg-5">
               <div className="text-center mb-4">
-                <ShieldLockFill size={48} className="text-primary" />
-                <h4 className="mt-2">Login</h4>
+                <ShieldLockFill size={52} className="text-primary mb-2" />
+                <h4 className="mt-1 fw-bold">Login</h4>
               </div>
               <Form onSubmit={handleSubmit}>
-                {error && <Alert variant="danger" className="text-center small">{error}</Alert>}
+                {error && <Alert variant="danger" className="text-center small py-2">{error}</Alert>}
                 <Form.Group className="mb-3" controlId="username">
                   <Form.Label>Username</Form.Label>
                   <Form.Control
@@ -86,7 +87,7 @@ const LoginPage = () => {
                 <Button 
                   variant="primary" 
                   type="submit" 
-                  className="w-100"
+                  className="w-100 py-2"
                   disabled={isSubmitting || authLoading}
                 >
                   {isSubmitting || authLoading ? (

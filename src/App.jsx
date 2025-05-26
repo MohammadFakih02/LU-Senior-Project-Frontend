@@ -1,3 +1,4 @@
+import { ToastContainer } from 'react-toastify';
 import { createHashRouter, RouterProvider, Navigate } from 'react-router-dom';
 import LayoutSidebar from './components/LayoutSidebar';
 import Users from './pages/Users';
@@ -9,17 +10,12 @@ import Payments from './pages/Payments';
 import NotFound from './pages/NotFound';
 
 import LoginPage from './pages/LoginPage';
-import ChangePasswordPage from './pages/ChangePasswordPage'; // Import the new page
 import ProtectedRoute from './components/ProtectedRoute';
 
 const router = createHashRouter([
   {
     path: '/login',
     element: <LoginPage />,
-  },
-  {
-    path: '/change-password',
-    element: <ChangePasswordPage />,
   },
   {
     element: <ProtectedRoute />,
@@ -79,7 +75,23 @@ const router = createHashRouter([
 ]);
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <ToastContainer
+        position="top-right"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+    </>
+  );
 }
 
 export default App;

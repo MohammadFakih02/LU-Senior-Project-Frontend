@@ -1,4 +1,3 @@
-// AppContext.jsx
 import { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -174,21 +173,18 @@ export const AppProvider = ({ children }) => {
         showSuccessToast("Application settings loaded/reloaded successfully.");
       }
       return true;
-    } catch (err) {
+    }catch (err) {
       const errorMessage = "Failed to load application settings from server. Using local/default settings if available.";
       console.error("Failed to fetch/refresh app settings from backend", err);
       setAppSettingsError(errorMessage);
       if (showToastOnError) {
         showErrorToast(isInitialFetch ? "Failed to load app settings. Using cached or default values." : "Failed to reload app settings.");
       }
-      if (!(err.response?.status === 401 && !isAuthenticated)) {
-         throw err; 
-      }
-       return false; 
+      return false; 
     } finally {
       setAppSettingsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, []);
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -288,24 +284,17 @@ export const AppProvider = ({ children }) => {
       return true; 
     } catch (error) {
       console.error("One or more settings failed to update on the backend.", error.message);
-      showErrorToast("Some settings could not be saved. Check console.");
       setAppSettingsLoading(false);
+      await fetchOrRefreshAppSettings(false, { showToastOnSuccess: false, showToastOnError: false });
       return false;
     }
   };
 
-  const changeAdminPassword = async (oldPassword, newPassword, confirmNewPassword) => {
+  const changeAdminPassword = async (oldPassword, newPassword) => {
     if (!isAuthenticated) {
-      showErrorToast("Login required to change password.");
-      return false;
-    }
-    if (newPassword !== confirmNewPassword) {
-      showErrorToast("New password and confirmation password do not match.");
-      return false;
-    }
-    if (!newPassword || newPassword.length < 6) { 
-        showErrorToast("New password must be at least 6 characters long.");
-        return false;
+      const msg = "Login required to change password.";
+      showErrorToast(msg);
+      throw new Error(msg);
     }
 
     try {
@@ -315,12 +304,25 @@ export const AppProvider = ({ children }) => {
         { withCredentials: true }
       );
       showSuccessToast("Password changed successfully!");
-      return true;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.response?.data || "Failed to change password.";
-      const displayMessage = typeof errorMessage === 'string' ? errorMessage : "Password change failed. Please try again.";
-      showErrorToast(displayMessage);
-      return false;
+      console.error("Change password API error:", error.response?.data || error.message, error);
+      if (error.response) {
+        const status = error.response.status;
+        const data = error.response.data;
+        const responseMessage = (typeof data === 'string' ? data : data?.message) || '';
+
+        if (status === 400 && responseMessage === "Incorrect old password.") {
+           throw new Error("Incorrect old password. Please try again.");
+        } else {
+          const displayMessage = responseMessage || `Password change failed (status ${status}). Please try again.`;
+          showErrorToast(displayMessage); 
+          throw new Error(displayMessage);
+        }
+      } else {
+        const networkErrorMsg = "Password change failed. Please check your connection and try again.";
+        showErrorToast(networkErrorMsg);
+        throw new Error(networkErrorMsg);
+      }
     }
   };
 
@@ -397,7 +399,7 @@ export const AppProvider = ({ children }) => {
     } catch (err) { 
       setUsersError(err.message); if (options.showToast) showErrorToast('Failed to refresh users'); 
       console.error('Refresh Users API Error:', err.response?.data || err.message);
-      throw err;
+      if (err.response?.status !== 401) throw err;
     } finally { setUsersLoading(false); }
   };
 
@@ -411,7 +413,7 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       setPaymentsError(err.message); if (options.showToast) showErrorToast('Failed to refresh payments'); 
       console.error('Refresh Payments API Error:', err.response?.data || err.message);
-      throw err;
+      if (err.response?.status !== 401) throw err;
     } finally { setPaymentsLoading(false); }
   };
 
@@ -425,7 +427,7 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       setBundlesError(err.message); if (options.showToast) showErrorToast('Failed to refresh bundles'); 
       console.error('Refresh Bundles API Error:', err.response?.data || err.message);
-      throw err;
+      if (err.response?.status !== 401) throw err;
     } finally { setBundlesLoading(false); }
   };
 
@@ -437,8 +439,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Bundle created successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to create bundle';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create bundle';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create bundle');
       console.error('Create Bundle API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -451,12 +453,31 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Bundle updated successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to update bundle';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update bundle';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update bundle');
       console.error('Update Bundle API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
   };
+
+  const deleteBundle = async (bundleId, bundleName) => {
+    if (!isAuthenticated) { 
+      showErrorToast("Login required."); 
+      throw new Error("Login required"); 
+    }
+    try {
+      await axios.delete(`${API_BASE_URL}/api/bundles/${bundleId}`, { withCredentials: true });
+      await refreshBundles({ showToast: false });
+      showSuccessToast(`Bundle "${bundleName}" deleted successfully`);
+      return true;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || error.response?.data || `Failed to delete bundle "${bundleName}"`;
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : `Failed to delete bundle "${bundleName}"`);
+      console.error(`Delete Bundle (${bundleId}) API Error:`, error.response?.data || error);
+      throw error.response?.data || error;
+    }
+  };
+
   const createUser = async (userData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
@@ -465,8 +486,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('User created successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to create user';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create user';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create user');
       console.error('Create User API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -479,8 +500,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('User updated successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to update user';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update user';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update user');
       console.error('Update User API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -497,8 +518,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('User deleted successfully');
       return true;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to delete user';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to delete user';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to delete user');
       console.error('Delete User API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -510,8 +531,8 @@ export const AppProvider = ({ children }) => {
       const response = await axios.get(`${API_BASE_URL}/api/users/${userId}`, { withCredentials: true });
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || `Failed to fetch user with ID ${userId}`;
-      console.error(`Fetch User By ID (${userId}) API Error: ${errorMessage}. Details:`, error.response?.data || error);
+      const errorMessage = error.response?.data?.message || error.response?.data || `Failed to fetch user with ID ${userId}`;
+      console.error(`Fetch User By ID (${userId}) API Error: ${typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}. Details:`, error.response?.data || error);
       throw error.response?.data || error;  
     }
   };
@@ -523,8 +544,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Payment status updated successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to update payment status';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update payment status';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update payment status');
       console.error('Update Payment Status API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -537,8 +558,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Payment updated successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to update payment';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update payment';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update payment');
       console.error('Update Payment API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -551,8 +572,8 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Payment created successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to create payment';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create payment';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create payment');
       console.error("Create Payment API Error:", error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -564,8 +585,8 @@ export const AppProvider = ({ children }) => {
       await refreshPayments({ showToast: false }); 
       showSuccessToast('Payment deleted successfully');
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || 'Failed to delete payment';
-      showErrorToast(errorMessage);
+      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to delete payment';
+      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to delete payment');
       console.error('Delete Payment API Error:', error.response?.data || error);
       throw error.response?.data || error; 
     }
@@ -583,7 +604,7 @@ export const AppProvider = ({ children }) => {
 
       users, usersLoading, usersError, refreshUsers, createUser, updateUser, deleteUser, fetchUserById,
       payments, paymentsLoading, paymentsError, refreshPayments, updatePaymentStatus, updatePayment, createPayment, deletePayment,
-      bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle,
+      bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle, deleteBundle,
       
       showSuccessToast, showErrorToast, showWarningToast, showInfoToast,
 

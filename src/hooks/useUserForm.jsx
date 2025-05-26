@@ -1,7 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { Row, Col, Form, Button } from "react-bootstrap";
 
-const URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+// Renamed existing pattern and added specific Google Maps pattern
+const GENERAL_URL_REGEX_PATTERN = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+const GOOGLE_MAPS_URL_REGEX_PATTERN = /^(https?:\/\/)?(www\.)?(google\.([a-z.]{2,6})\/maps|goo\.gl\/maps|maps\.app\.goo\.gl)(\/.*)?$/i;
+
+// Patterns for bundle location validation
+const LOCATION_ADDRESS_STREET_REGEX_PATTERN = /^[A-Za-z0-9À-ÖØ-öø-ÿ\s.,#/-]+$/;
+const LOCATION_CITY_REGEX_PATTERN = /^[A-Za-zÀ-ÖØ-öø-ÿ\s'-]+$/;
+const LOCATION_BUILDING_FLOOR_REGEX_PATTERN = /^[A-Za-z0-9\s-]+$/;
+
 
 const useUserForm = ({
   isEditMode,
@@ -112,49 +120,72 @@ const useUserForm = ({
     let isValid = true;
 
     selectedBundles.forEach((bundle) => {
+      // Address Validation
       if (!bundle.address) {
         bundleErrors[`address-${bundle.tempId}`] = "Address is required";
         isValid = false;
       } else if (bundle.address.length > 255) {
         bundleErrors[`address-${bundle.tempId}`] = "Address must be at most 255 characters";
         isValid = false;
+      } else if (!LOCATION_ADDRESS_STREET_REGEX_PATTERN.test(bundle.address)) {
+        bundleErrors[`address-${bundle.tempId}`] = "Address can only contain letters, numbers, spaces, and .,#/-";
+        isValid = false;
       }
 
+      // City Validation
       if (!bundle.city) {
         bundleErrors[`city-${bundle.tempId}`] = "City is required";
         isValid = false;
       } else if (bundle.city.length > 45) {
         bundleErrors[`city-${bundle.tempId}`] = "City must be at most 45 characters";
         isValid = false;
+      } else if (!LOCATION_CITY_REGEX_PATTERN.test(bundle.city)) {
+        bundleErrors[`city-${bundle.tempId}`] = "City can only contain letters, spaces, hyphens, and apostrophes";
+        isValid = false;
       }
 
+      // Street Validation
       if (!bundle.street) {
         bundleErrors[`street-${bundle.tempId}`] = "Street is required";
         isValid = false;
       } else if (bundle.street.length > 45) {
         bundleErrors[`street-${bundle.tempId}`] = "Street must be at most 45 characters";
         isValid = false;
+      } else if (!LOCATION_ADDRESS_STREET_REGEX_PATTERN.test(bundle.street)) {
+        bundleErrors[`street-${bundle.tempId}`] = "Street can only contain letters, numbers, spaces, and .,#/-";
+        isValid = false;
       }
 
+      // Building Validation
       if (!bundle.building) {
         bundleErrors[`building-${bundle.tempId}`] = "Building is required";
         isValid = false;
       } else if (bundle.building.length > 45) {
         bundleErrors[`building-${bundle.tempId}`] = "Building must be at most 45 characters";
         isValid = false;
-      }
-
-      if (bundle.floor && bundle.floor.length > 45) {
-        bundleErrors[`floor-${bundle.tempId}`] = "Floor must be at most 45 characters";
+      } else if (!LOCATION_BUILDING_FLOOR_REGEX_PATTERN.test(bundle.building)) {
+        bundleErrors[`building-${bundle.tempId}`] = "Building can only contain letters, numbers, spaces, and hyphens";
         isValid = false;
       }
 
+      // Floor Validation (Optional)
+      if (bundle.floor) {
+        if (bundle.floor.length > 45) {
+          bundleErrors[`floor-${bundle.tempId}`] = "Floor must be at most 45 characters";
+          isValid = false;
+        } else if (!LOCATION_BUILDING_FLOOR_REGEX_PATTERN.test(bundle.floor)) {
+          bundleErrors[`floor-${bundle.tempId}`] = "Floor can only contain letters, numbers, spaces, and hyphens";
+          isValid = false;
+        }
+      }
+
+      // Google Maps URL Validation (Optional)
       if (bundle.googleMapsUrl) {
         if (bundle.googleMapsUrl.length > 255) {
           bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "URL must be at most 255 characters";
           isValid = false;
-        } else if (!URL_REGEX_PATTERN.test(bundle.googleMapsUrl)) {
-          bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "Invalid URL format";
+        } else if (!GOOGLE_MAPS_URL_REGEX_PATTERN.test(bundle.googleMapsUrl)) {
+          bundleErrors[`googleMapsUrl-${bundle.tempId}`] = "Invalid Google Maps URL format. Must be a valid google.com/maps, goo.gl/maps, or maps.app.goo.gl URL.";
           isValid = false;
         }
       }
@@ -329,11 +360,10 @@ const useUserForm = ({
 
    const openGoogleMaps = useCallback((locationData, existingUrl) => {
     let urlToOpen = '';
-    const googleMapsUrlRegex = /^(https?:\/\/)?(www\.)?google\.com\/maps\/.+/i;
-
-    if (existingUrl && googleMapsUrlRegex.test(existingUrl)) {
+    
+    if (existingUrl && GOOGLE_MAPS_URL_REGEX_PATTERN.test(existingUrl)) { // Check specific Google Maps URL first
         urlToOpen = existingUrl;
-    } else if (existingUrl && URL_REGEX_PATTERN.test(existingUrl)) {
+    } else if (existingUrl && GENERAL_URL_REGEX_PATTERN.test(existingUrl)) { // Fallback to any valid URL
         urlToOpen = existingUrl;
     }
     else {
@@ -492,14 +522,32 @@ const useUserForm = ({
       })
     );
 
+    // Clear validation errors for this bundle if primary location data is valid for those fields
     setValidationErrors(prevErrors => {
       const newErrors = { ...prevErrors };
       const fieldsToClearForBundle = ['address', 'city', 'street', 'building', 'floor', 'googleMapsUrl'];
       fieldsToClearForBundle.forEach(field => {
           const primaryValue = primaryLocationValues[field];
-          const isOptionalAndEmpty = (field === 'floor' || field === 'googleMapsUrl') && !primaryValue;
+          let fieldIsValidBasedOnPrimary = false;
 
-          if (primaryValue || isOptionalAndEmpty) {
+          if (field === 'address' || field === 'street') {
+            fieldIsValidBasedOnPrimary = primaryValue && LOCATION_ADDRESS_STREET_REGEX_PATTERN.test(primaryValue);
+          } else if (field === 'city') {
+            fieldIsValidBasedOnPrimary = primaryValue && LOCATION_CITY_REGEX_PATTERN.test(primaryValue);
+          } else if (field === 'building' || field === 'floor') {
+            fieldIsValidBasedOnPrimary = (!primaryValue && field === 'floor') || (primaryValue && LOCATION_BUILDING_FLOOR_REGEX_PATTERN.test(primaryValue));
+          } else if (field === 'googleMapsUrl') {
+            fieldIsValidBasedOnPrimary = !primaryValue || (primaryValue && GOOGLE_MAPS_URL_REGEX_PATTERN.test(primaryValue));
+          }
+          
+          // Required fields must have a value
+          const isRequired = ['address', 'city', 'street', 'building'].includes(field);
+          if (isRequired && !primaryValue) {
+            fieldIsValidBasedOnPrimary = false; // Will be caught by main validation anyway
+          }
+
+
+          if (fieldIsValidBasedOnPrimary || (isRequired && primaryValue) || (!isRequired && !primaryValue)) {
              delete newErrors[`${field}-${bundleTempId}`];
           }
       });
