@@ -1,4 +1,3 @@
-// AppContext.jsx
 import { createContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -457,6 +456,25 @@ export const AppProvider = ({ children }) => {
       throw error.response?.data || error; 
     }
   };
+
+  const deleteBundle = async (bundleId, bundleName) => {
+    if (!isAuthenticated) { 
+      showErrorToast("Login required."); 
+      throw new Error("Login required"); 
+    }
+    try {
+      await axios.delete(`${API_BASE_URL}/api/bundles/${bundleId}`, { withCredentials: true });
+      await refreshBundles({ showToast: false });
+      showSuccessToast(`Bundle "${bundleName}" deleted successfully`);
+      return true;
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || `Failed to delete bundle "${bundleName}"`;
+      showErrorToast(errorMessage);
+      console.error(`Delete Bundle (${bundleId}) API Error:`, error.response?.data || error);
+      throw error.response?.data || error;
+    }
+  };
+
   const createUser = async (userData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
@@ -583,7 +601,7 @@ export const AppProvider = ({ children }) => {
 
       users, usersLoading, usersError, refreshUsers, createUser, updateUser, deleteUser, fetchUserById,
       payments, paymentsLoading, paymentsError, refreshPayments, updatePaymentStatus, updatePayment, createPayment, deletePayment,
-      bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle,
+      bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle, deleteBundle,
       
       showSuccessToast, showErrorToast, showWarningToast, showInfoToast,
 

@@ -5,7 +5,6 @@ import './styles/BundleCreationButton.css';
 import { useContext, useState } from 'react';
 import AppContext from '../context/AppContext';
 import BundleCard from '../components/BundleCard';
-import axios from 'axios';
 
 const Bundles = () => {
   const {
@@ -13,10 +12,9 @@ const Bundles = () => {
     bundlesLoading,
     bundlesError,
     refreshBundles,
-    showSuccessToast,
-    showErrorToast,
-    users, // Added users
-    payments, // Added payments
+    users,
+    payments,
+    deleteBundle,
   } = useContext(AppContext);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -26,7 +24,6 @@ const Bundles = () => {
 
   const handleDeleteClick = (bundle) => {
     const warnings = [];
-    // Check for active user bundles
     const activeUsersWithBundle = users.filter(user =>
       user.bundleNames && user.bundleNames.includes(bundle.name)
     );
@@ -36,7 +33,6 @@ const Bundles = () => {
       );
     }
 
-    // Check for unpaid/pending payments for this bundle
     const relevantPayments = payments.filter(
       (payment) => payment.bundleId === bundle.bundleId && payment.status !== 'PAID'
     );
@@ -58,7 +54,7 @@ const Bundles = () => {
   const handleCloseDeleteModal = () => {
     setShowDeleteModal(false);
     setBundleToDelete(null);
-    setDeleteWarningMessages([]); // Clear warnings on close
+    setDeleteWarningMessages([]);
   };
 
   const handleConfirmDelete = async () => {
@@ -66,14 +62,12 @@ const Bundles = () => {
 
     setIsDeleting(true);
     try {
-      await axios.delete(`http://localhost:8080/api/bundles/${bundleToDelete.bundleId}`);
-      await refreshBundles({ showToast: false });
-      showSuccessToast(`Bundle "${bundleToDelete.name}" deleted successfully`);
+      await deleteBundle(bundleToDelete.bundleId, bundleToDelete.name);
     } catch (error) {
-      showErrorToast(error.response?.data?.message || `Failed to delete bundle "${bundleToDelete.name}"`);
+      console.error("Delete bundle failed from component:", error);
     } finally {
       setIsDeleting(false);
-      handleCloseDeleteModal(); // Use the new close handler
+      handleCloseDeleteModal();
     }
   };
 
