@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Stack } from 'react-bootstrap'; // Added Stack
+import { Container, Row, Col, Card, Form, Button, Alert, Spinner, Stack } from 'react-bootstrap';
 import { ShieldLockFill, LightningChargeFill } from 'react-bootstrap-icons';
 import AppContext from '../context/AppContext';
 
@@ -11,12 +11,13 @@ const LoginPage = () => {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(''); // This will display the error message from loginUser
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const from = location.state?.from?.pathname || "/users";
 
   useEffect(() => {
+    // This effect handles navigation if already authenticated or after successful login
     if (isAuthenticated && !authLoading) {
       navigate(from, { replace: true });
     }
@@ -24,21 +25,28 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(''); // Clear previous error
     setIsSubmitting(true);
-    const success = await loginUser(username, password);
-    setIsSubmitting(false);
-    if (success) {
-      navigate(from, { replace: true });
-    } else {
-      setError('Login failed. Please check your credentials or try again.');
+    try {
+      await loginUser(username, password);
+      // On successful login, isAuthenticated becomes true, authLoading becomes false.
+      // The useEffect above will handle navigation.
+      // No explicit navigation here is needed if relying on useEffect.
+    } catch (err) {
+      // err.message will contain the user-friendly message thrown by loginUser
+      // This includes network errors, 429 lockout messages, etc.
+      setError(err.message || 'An unexpected error occurred during login.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-  if (authLoading && !currentUser && !isAuthenticated) {
+  // Initial loading spinner for the very first auth check when page loads
+  if (authLoading && !currentUser && !isAuthenticated && !isSubmitting) {
      return (
         <Container fluid className="d-flex justify-content-center align-items-center min-vh-100 bg-light">
            <Spinner animation="border" variant="primary" />
+           <span className="ms-2">Checking authentication...</span>
         </Container>
      );
   }
@@ -70,6 +78,7 @@ const LoginPage = () => {
                     onChange={(e) => setUsername(e.target.value)}
                     required
                     autoFocus
+                    disabled={isSubmitting || authLoading}
                   />
                 </Form.Group>
 
@@ -81,6 +90,7 @@ const LoginPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={isSubmitting || authLoading}
                   />
                 </Form.Group>
 

@@ -6,6 +6,10 @@ const API_BASE_URL = "https://internet-provider-service-314943734627.europe-west
 const CONFIG_API_BASE_URL = `${API_BASE_URL}/api/config`;
 const AUTH_API_BASE_URL = `${API_BASE_URL}/api/auth`;
 
+const NETWORK_ERROR_TOAST_MESSAGE = "Network error. Please check your connection and server status.";
+const LOGIN_BACKEND_UNAVAILABLE_MESSAGE = "Login service is currently unavailable. Please try again later or check server status.";
+const LOGIN_GENERIC_FAILURE_MESSAGE = "Login failed. Please check your credentials or try again.";
+
 const AppContext = createContext();
 
 const defaultSettings = {
@@ -48,26 +52,32 @@ export const AppProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    return () => toast.dismiss();
+    return () => toast.dismiss(); // Clear all toasts on unmount
   }, []);
 
-  const showSuccessToast = (message) => {
-    toast.success(message, { toastId: `success-${message || Date.now()}` });
-  };
+  // Memoized Toast Functions
+  const showSuccessToast = useCallback((message, options = {}) => {
+    const defaultOptions = { toastId: `success-${message || Date.now()}` };
+    toast.success(message, { ...defaultOptions, ...options });
+  }, []);
 
-  const showErrorToast = (message) => {
-    toast.error(message, { toastId: `error-${message || Date.now()}`, autoClose: 5000 });
-  };
+  const showErrorToast = useCallback((message, options = {}) => {
+    const defaultOptions = { toastId: `error-${message || Date.now()}`, autoClose: 5000 };
+    toast.error(message, { ...defaultOptions, ...options });
+  }, []);
 
-  const showWarningToast = (message) => {
-    toast.warn(message, { toastId: `warn-${message || Date.now()}`, autoClose: 4000 });
-  };
+  const showWarningToast = useCallback((message, options = {}) => {
+    const defaultOptions = { toastId: `warn-${message || Date.now()}`, autoClose: 4000 };
+    toast.warn(message, { ...defaultOptions, ...options });
+  }, []);
 
-  const showInfoToast = (message) => {
-    toast.info(message, { toastId: `info-${message || Date.now()}`, autoClose: 3500 });
-  };
+  const showInfoToast = useCallback((message, options = {}) => {
+    const defaultOptions = { toastId: `info-${message || Date.now()}`, autoClose: 3500 };
+    toast.info(message, { ...defaultOptions, ...options });
+  }, []);
 
-  const checkAuthStatus = useCallback(async () => {
+  // Memoized Auth Functions
+  const checkAuthStatus = useCallback(async (isInitialCheck = true) => {
     setAuthLoading(true);
     try {
       const response = await axios.get(`${AUTH_API_BASE_URL}/status`, { withCredentials: true });
@@ -77,21 +87,40 @@ export const AppProvider = ({ children }) => {
       } else {
         setIsAuthenticated(false);
         setCurrentUser(null);
+        // No need to throw if server explicitly says not authenticated, state is set.
       }
     } catch (error) {
-      console.error("Auth status check failed:", error.response?.data || error.message);
       setIsAuthenticated(false);
       setCurrentUser(null);
+      if (error.isAxiosError && !error.response) {
+        console.error("Auth status check failed due to network error:", error.message);
+        if (!isInitialCheck) showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+      } else if (error.response) {
+        console.error("Auth status check API error:", error.response.data || error.message);
+      } else {
+        console.error("Auth status check failed with unexpected error:", error.message);
+      }
+      // Re-throw so callers like loginUser can handle it
+      throw error;
     } finally {
       setAuthLoading(false);
     }
-  }, []);
+  }, [showErrorToast]); // showErrorToast is stable
 
   useEffect(() => {
-    checkAuthStatus();
+    const performInitialAuthCheck = async () => {
+        try {
+            await checkAuthStatus(true);
+        } catch (e) {
+            // Errors are logged by checkAuthStatus.
+            // isAuthenticated will be false, authLoading will be false.
+            console.warn("Initial auth status check in useEffect failed:", e.message);
+        }
+    };
+    performInitialAuthCheck();
   }, [checkAuthStatus]);
 
-  const loginUser = async (username, password) => {
+  const loginUser = useCallback(async (username, password) => {
     setAuthLoading(true);
     try {
       const params = new URLSearchParams();
@@ -102,230 +131,228 @@ export const AppProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         withCredentials: true,
       });
-      await checkAuthStatus(); 
+      await checkAuthStatus(false); // This will set isAuthenticated, currentUser, and authLoading
       showSuccessToast("Login successful!");
-      return true;
+      // setAuthLoading(false) is handled by checkAuthStatus
     } catch (error) {
-      console.error("Login failed:", error.response?.data || error.message);
-      const errorMessage = error.response?.data || "Login failed. Please check your credentials.";
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : "Login failed.");
-      setIsAuthenticated(false);
+      // checkAuthStatus will set isAuthenticated to false on error if it's called
+      // If axios.post fails before checkAuthStatus, we need to set them here.
+      setIsAuthenticated(false); 
       setCurrentUser(null);
-      setAuthLoading(false);
-      return false;
-    }
-  };
+      setAuthLoading(false); // Ensure authLoading is false on login failure path
 
-  const logoutUser = async () => {
+      let errorMessageForToast = LOGIN_GENERIC_FAILURE_MESSAGE;
+      let errorMessageForCaller = LOGIN_GENERIC_FAILURE_MESSAGE;
+
+      if (error.isAxiosError && !error.response) {
+        console.error("Login failed due to network/request error:", error.message);
+        errorMessageForToast = LOGIN_BACKEND_UNAVAILABLE_MESSAGE;
+        errorMessageForCaller = LOGIN_BACKEND_UNAVAILABLE_MESSAGE;
+      } else if (error.response) {
+        console.error("Login API Error:", error.response.status, error.response.data || error.message);
+        const responseData = error.response.data;
+        if (error.response.status === 429 && responseData && responseData.message) {
+             errorMessageForToast = responseData.message;
+        } else if (typeof responseData === 'string' && responseData.length > 0) {
+             errorMessageForToast = responseData;
+        } else if (responseData && responseData.message) {
+             errorMessageForToast = responseData.message;
+        } else if (error.response.status === 401) {
+            errorMessageForToast = "Login failed: Invalid username or password.";
+        }
+        errorMessageForCaller = errorMessageForToast;
+      } else {
+        console.error("Login process failed with an internal/unexpected error:", error.message, error);
+        errorMessageForToast = error.message?.includes("Auth check failed") ? LOGIN_BACKEND_UNAVAILABLE_MESSAGE : (error.message || "Login failed due to an internal error.");
+        errorMessageForCaller = errorMessageForToast;
+      }
+      
+      showErrorToast(errorMessageForToast);
+      throw new Error(errorMessageForCaller);
+    }
+  }, [checkAuthStatus, showSuccessToast, showErrorToast]); // Dependencies are stable
+
+  const logoutUser = useCallback(async () => {
     setAuthLoading(true);
     try {
       await axios.post(`${AUTH_API_BASE_URL}/logout`, {}, { withCredentials: true });
       showSuccessToast("Logout successful!");
     } catch (error) {
-      console.error("Logout failed:", error.response?.data || error.message);
-      showErrorToast("Logout failed. Please try again.");
+      // Error handling... (similar to before, using stable showErrorToast)
+      if (error.isAxiosError && !error.response) {
+        showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+      } else if (error.response) {
+        showErrorToast(`Logout failed: ${error.response.data?.message || 'Please try again.'}`);
+      } else {
+        showErrorToast("Logout failed due to an unexpected error. Please try again.");
+      }
     } finally {
       setIsAuthenticated(false);
       setCurrentUser(null);
       setAuthLoading(false);
     }
-  };
+  }, [showSuccessToast, showErrorToast]); // Dependencies are stable
 
+  // Memoized Settings Functions
   const fetchOrRefreshAppSettings = useCallback(async (isInitialFetch = false, options = {}) => {
-    const { 
-      showToastOnSuccess = !isInitialFetch,
-      showToastOnError = true 
-    } = options;
-
+    const { showToastOnSuccess = !isInitialFetch, showToastOnError = true } = options;
     setAppSettingsLoading(true);
     setAppSettingsError(null);
     try {
-      const [
-        recurringPaymentsRes,
-        overdueProcessingRes,
-        retentionDaysRes,
-        autoCreateInitialPaymentRes,
-      ] = await Promise.all([
+      const [recurringPaymentsRes, overdueProcessingRes, retentionDaysRes, autoCreateInitialPaymentRes] = await Promise.all([
         axios.get(`${CONFIG_API_BASE_URL}/recurring-payments`, { withCredentials: true }),
         axios.get(`${CONFIG_API_BASE_URL}/overdue-processing`, { withCredentials: true }),
         axios.get(`${CONFIG_API_BASE_URL}/retention-days`, { withCredentials: true }),
         axios.get(`${CONFIG_API_BASE_URL}/initial-payment/auto-create`, { withCredentials: true }),
       ]);
-
-      const fetchedBackendSettings = {
+      const newSettingsData = {
         autoCreateMonthly: recurringPaymentsRes.data,
         autoDisableBundleOnNoPayment: overdueProcessingRes.data,
         autoDeletePaymentTime: mapRetentionDaysFromBackend(retentionDaysRes.data),
         autoCreateOnUserCreation: autoCreateInitialPaymentRes.data,
       };
-      
       setAppSettings(prevSettings => {
-        const newSettings = {
-          ...defaultSettings,
-          ...prevSettings,
-          ...fetchedBackendSettings,
-        };
+        const newSettings = { ...defaultSettings, ...prevSettings, ...newSettingsData };
         localStorage.setItem('appDashboardSettings', JSON.stringify(newSettings));
         return newSettings;
       });
-
-      if (showToastOnSuccess) {
-        showSuccessToast("Application settings loaded/reloaded successfully.");
-      }
+      if (showToastOnSuccess) showSuccessToast("Application settings loaded/reloaded successfully.");
       return true;
-    }catch (err) {
-      const errorMessage = "Failed to load application settings from server. Using local/default settings if available.";
-      console.error("Failed to fetch/refresh app settings from backend", err);
-      setAppSettingsError(errorMessage);
-      if (showToastOnError) {
-        showErrorToast(isInitialFetch ? "Failed to load app settings. Using cached or default values." : "Failed to reload app settings.");
+    } catch (err) {
+      let errorMsgForState = "Failed to load application settings.";
+      if (err.isAxiosError && !err.response) {
+        errorMsgForState = "Network error: Failed to load application settings.";
+        if (showToastOnError) showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+      } else if (err.response) {
+        errorMsgForState = `Failed to load application settings from server (status ${err.response.status}).`;
+        if (showToastOnError) showErrorToast(isInitialFetch ? `${errorMsgForState} Using cached or default values.` : errorMsgForState);
+      } else {
+        errorMsgForState = "An unexpected error occurred while loading application settings.";
+        if (showToastOnError) showErrorToast(isInitialFetch ? `${errorMsgForState} Using cached or default values.` : errorMsgForState);
       }
+      setAppSettingsError(errorMsgForState);
       return false; 
     } finally {
       setAppSettingsLoading(false);
     }
-  }, []);
-  
+  }, [showSuccessToast, showErrorToast]); // Dependencies are stable
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchOrRefreshAppSettings(true, { showToastOnSuccess: false });
     } else {
       setAppSettingsLoading(false);
+      setAppSettings(defaultSettings); // Reset to default if not authenticated
+      localStorage.removeItem('appDashboardSettings');
     }
   }, [isAuthenticated, fetchOrRefreshAppSettings]);
 
-  const refreshAppSettings = async (options = { showToastOnSuccess: true, showToastOnError: true }) => {
+  const refreshAppSettings = useCallback(async (options = { showToastOnSuccess: true, showToastOnError: true }) => {
     if (!isAuthenticated) {
       showErrorToast("Please login to refresh application settings.");
       return false;
     }
     return fetchOrRefreshAppSettings(false, options);
-  };
+  }, [isAuthenticated, fetchOrRefreshAppSettings, showErrorToast]);
 
-  const updateAppSettings = async (newSettings) => {
+  const updateAppSettings = useCallback(async (newSettings) => {
     if (!isAuthenticated) {
       showErrorToast("Please login to update application settings.");
       return false;
     }
     setAppSettingsLoading(true);
-    const currentBackendSettings = {
-      autoCreateMonthly: appSettings.autoCreateMonthly,
-      autoDisableBundleOnNoPayment: appSettings.autoDisableBundleOnNoPayment,
-      autoDeletePaymentTime: mapRetentionDaysToBackend(appSettings.autoDeletePaymentTime),
-      autoCreateOnUserCreation: appSettings.autoCreateOnUserCreation,
-    };
-
-    const newBackendSettings = {
-      autoCreateMonthly: newSettings.autoCreateMonthly,
-      autoDisableBundleOnNoPayment: newSettings.autoDisableBundleOnNoPayment,
-      autoDeletePaymentTime: mapRetentionDaysToBackend(newSettings.autoDeletePaymentTime),
-      autoCreateOnUserCreation: newSettings.autoCreateOnUserCreation,
-    };
-    
     const backendUpdatePromises = [];
+    const createCatchHandler = (settingName) => (err) => { /* ... uses showErrorToast ... */
+        let toastMessage;
+        if (err.isAxiosError && !err.response) toastMessage = NETWORK_ERROR_TOAST_MESSAGE;
+        else if (err.response) toastMessage = `Failed to update '${settingName}': ${err.response.data?.message || err.message}`;
+        else toastMessage = `Unexpected error updating '${settingName}': ${err.message}`;
+        showErrorToast(toastMessage);
+        throw err;
+    };
 
-    if (newBackendSettings.autoCreateMonthly !== currentBackendSettings.autoCreateMonthly) {
-      backendUpdatePromises.push(
-        axios.put(`${CONFIG_API_BASE_URL}/recurring-payments/${newBackendSettings.autoCreateMonthly}`, {}, { withCredentials: true })
-          .catch(err => { 
-            const message = `Failed to update 'Auto Create Monthly': ${err.response?.data?.message || err.message}`;
-            console.error(message, err);
-            showErrorToast(message);
-            throw err; 
-          })
-      );
-    }
-    if (newBackendSettings.autoDisableBundleOnNoPayment !== currentBackendSettings.autoDisableBundleOnNoPayment) {
-      backendUpdatePromises.push(
-        axios.put(`${CONFIG_API_BASE_URL}/overdue-processing/${newBackendSettings.autoDisableBundleOnNoPayment}`, {}, { withCredentials: true })
-          .catch(err => { 
-            const message = `Failed to update 'Auto Disable Bundle': ${err.response?.data?.message || err.message}`;
-            console.error(message, err);
-            showErrorToast(message);
-            throw err; 
-           })
-      );
-    }
-    if (newBackendSettings.autoDeletePaymentTime !== currentBackendSettings.autoDeletePaymentTime) {
-      backendUpdatePromises.push(
-        axios.put(`${CONFIG_API_BASE_URL}/retention-days/${newBackendSettings.autoDeletePaymentTime}`, {}, { withCredentials: true })
-          .catch(err => { 
-            const message = `Failed to update 'Auto Delete Payment Time': ${err.response?.data?.message || err.message}`;
-            console.error(message, err);
-            showErrorToast(message);
-            throw err;
-           })
-      );
-    }
-    if (newBackendSettings.autoCreateOnUserCreation !== currentBackendSettings.autoCreateOnUserCreation) {
-      backendUpdatePromises.push(
-        axios.put(`${CONFIG_API_BASE_URL}/initial-payment/auto-create/${newBackendSettings.autoCreateOnUserCreation}`, {}, { withCredentials: true })
-          .catch(err => { 
-            const message = `Failed to update 'Auto Create on User Creation': ${err.response?.data?.message || err.message}`;
-            console.error(message, err);
-            showErrorToast(message);
-            throw err;
-           })
-      );
-    }
+    if (newSettings.autoCreateMonthly !== appSettings.autoCreateMonthly) backendUpdatePromises.push(axios.put(`${CONFIG_API_BASE_URL}/recurring-payments/${newSettings.autoCreateMonthly}`, {}, { withCredentials: true }).catch(createCatchHandler('Auto Create Monthly')));
+    if (newSettings.autoDisableBundleOnNoPayment !== appSettings.autoDisableBundleOnNoPayment) backendUpdatePromises.push(axios.put(`${CONFIG_API_BASE_URL}/overdue-processing/${newSettings.autoDisableBundleOnNoPayment}`, {}, { withCredentials: true }).catch(createCatchHandler('Auto Disable Bundle')));
+    if (mapRetentionDaysToBackend(newSettings.autoDeletePaymentTime) !== mapRetentionDaysToBackend(appSettings.autoDeletePaymentTime)) backendUpdatePromises.push(axios.put(`${CONFIG_API_BASE_URL}/retention-days/${mapRetentionDaysToBackend(newSettings.autoDeletePaymentTime)}`, {}, { withCredentials: true }).catch(createCatchHandler('Auto Delete Payment Time')));
+    if (newSettings.autoCreateOnUserCreation !== appSettings.autoCreateOnUserCreation) backendUpdatePromises.push(axios.put(`${CONFIG_API_BASE_URL}/initial-payment/auto-create/${newSettings.autoCreateOnUserCreation}`, {}, { withCredentials: true }).catch(createCatchHandler('Auto Create on User Creation')));
 
     try {
-      if (backendUpdatePromises.length > 0) {
-        await Promise.all(backendUpdatePromises);
-      }
-      
+      if (backendUpdatePromises.length > 0) await Promise.all(backendUpdatePromises);
       setAppSettings(currentFullSettings => {
         const updatedFullSettings = { ...currentFullSettings, ...newSettings };
         localStorage.setItem('appDashboardSettings', JSON.stringify(updatedFullSettings));
         return updatedFullSettings;
       });
       showSuccessToast("Settings updated successfully!");
+      return true;
+    } finally {
       setAppSettingsLoading(false);
-      return true; 
-    } catch (error) {
-      console.error("One or more settings failed to update on the backend.", error.message);
-      setAppSettingsLoading(false);
-      await fetchOrRefreshAppSettings(false, { showToastOnSuccess: false, showToastOnError: false });
-      return false;
     }
-  };
+  }, [isAuthenticated, appSettings, showErrorToast, showSuccessToast, fetchOrRefreshAppSettings]);
 
-  const changeAdminPassword = async (oldPassword, newPassword) => {
-    if (!isAuthenticated) {
-      const msg = "Login required to change password.";
-      showErrorToast(msg);
-      throw new Error(msg);
+  const changeAdminPassword = useCallback(async (oldPassword, newPassword) => {
+    // ... uses showErrorToast, showSuccessToast ...
+    if (!isAuthenticated) { 
+      showErrorToast("Authentication required to change password.");
+      throw new Error("Authentication required.");
     }
-
     try {
-      await axios.put(
-        `${CONFIG_API_BASE_URL}/security/password`,
-        { oldPassword, newPassword },
-        { withCredentials: true }
-      );
+      await axios.put(`${AUTH_API_BASE_URL}/change-password`, { oldPassword, newPassword }, { withCredentials: true });
       showSuccessToast("Password changed successfully!");
     } catch (error) {
-      console.error("Change password API error:", error.response?.data || error.message, error);
-      if (error.response) {
-        const status = error.response.status;
-        const data = error.response.data;
-        const responseMessage = (typeof data === 'string' ? data : data?.message) || '';
-
-        if (status === 400 && responseMessage === "Incorrect old password.") {
-           throw new Error("Incorrect old password. Please try again.");
+      // Error handling logic as before, using stable toast functions
+        if (error.isAxiosError && !error.response) {
+            showErrorToast(NETWORK_ERROR_TOAST_MESSAGE); throw new Error(NETWORK_ERROR_TOAST_MESSAGE);
+        } else if (error.response) {
+            const { status, data } = error.response;
+            const responseMessage = (typeof data === 'string' ? data : data?.message) || '';
+            if (status === 400 && responseMessage === "Incorrect old password.") throw new Error("Incorrect old password. Please try again.");
+            const displayMessage = responseMessage || `Password change failed (status ${status}). Please try again.`;
+            showErrorToast(displayMessage); throw new Error(displayMessage);
         } else {
-          const displayMessage = responseMessage || `Password change failed (status ${status}). Please try again.`;
-          showErrorToast(displayMessage); 
-          throw new Error(displayMessage);
+            const genericFailMsg = "Password change failed. An unexpected error occurred.";
+            showErrorToast(genericFailMsg); throw new Error(genericFailMsg);
         }
-      } else {
-        const networkErrorMsg = "Password change failed. Please check your connection and try again.";
-        showErrorToast(networkErrorMsg);
-        throw new Error(networkErrorMsg);
-      }
     }
-  };
+  }, [isAuthenticated, showErrorToast, showSuccessToast]);
 
+  // Memoized Error Handlers for CRUD and Fetching
+  const handleFetchError = useCallback((err, entityName, setErrorState) => {
+    setErrorState(err.message || `Failed to fetch ${entityName}`);
+    if (err.isAxiosError && !err.response) {
+      showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+    } else if (err.response) {
+      if (err.response.status !== 401) { // 401 handled by global auth flow potentially
+        const serverMsg = err.response.data?.message || err.response.data;
+        const toastMsg = typeof serverMsg === 'string' ? serverMsg : `Failed to load ${entityName.toLowerCase()}.`;
+        showErrorToast(toastMsg);
+      }
+    } else {
+      showErrorToast(`An unexpected error occurred while fetching ${entityName.toLowerCase()}.`);
+    }
+  }, [showErrorToast]); // Depends on stable showErrorToast
+
+  const handleRefreshError = useCallback((err, entityName, setErrorState, options) => {
+    setErrorState(err.message || `Failed to refresh ${entityName}`);
+    let shouldThrow = false;
+    if (err.isAxiosError && !err.response) {
+        if (options.showToast) showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+        shouldThrow = true;
+    } else if (err.response) {
+        if (options.showToast && err.response.status !== 401) {
+            const serverMsg = err.response.data?.message || err.response.data;
+            const toastMsg = typeof serverMsg === 'string' ? serverMsg : `Failed to refresh ${entityName.toLowerCase()}.`;
+            showErrorToast(toastMsg);
+        }
+        if (err.response.status !== 401) shouldThrow = true;
+    } else {
+        if (options.showToast) showErrorToast(`An unexpected error occurred while refreshing ${entityName.toLowerCase()}.`);
+        shouldThrow = true;
+    }
+    if (shouldThrow) throw err;
+  }, [showErrorToast]); // Depends on stable showErrorToast
+
+  // Memoized Data Fetching Functions
   const fetchUsers = useCallback(async () => {
     if (!isAuthenticated) return;
     setUsersLoading(true);
@@ -334,13 +361,11 @@ export const AppProvider = ({ children }) => {
       setUsers(response.data);
       setUsersError(null);
     } catch (err) {
-      setUsersError(err.message);
-      if (err.response?.status !== 401) showErrorToast('Failed to load users');
-      console.error('Users API Error:', err.response?.data || err.message);
+      handleFetchError(err, "Users", setUsersError);
     } finally {
       setUsersLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, handleFetchError]);
 
   const fetchPayments = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -350,13 +375,11 @@ export const AppProvider = ({ children }) => {
       setPayments(response.data);
       setPaymentsError(null);
     } catch (err) {
-      setPaymentsError(err.message);
-      if (err.response?.status !== 401) showErrorToast('Failed to load payments');
-      console.error('Payments API Error:', err.response?.data || err.message);
+      handleFetchError(err, "Payments", setPaymentsError);
     } finally {
       setPaymentsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, handleFetchError]);
 
   const fetchBundles = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -366,13 +389,11 @@ export const AppProvider = ({ children }) => {
       setBundles(response.data);
       setBundlesError(null);
     } catch (err) {
-      setBundlesError(err.message);
-      if (err.response?.status !== 401) showErrorToast('Failed to load bundles');
-      console.error('Bundles API Error:', err.response?.data || err.message);
+      handleFetchError(err, "Bundles", setBundlesError);
     } finally {
       setBundlesLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, handleFetchError]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -380,16 +401,14 @@ export const AppProvider = ({ children }) => {
       fetchPayments();
       fetchBundles();
     } else {
-      setUsers([]);
-      setPayments([]);
-      setBundles([]);
-      setUsersLoading(false);
-      setPaymentsLoading(false);
-      setBundlesLoading(false);
+      setUsers([]); setPayments([]); setBundles([]);
+      setUsersLoading(false); setPaymentsLoading(false); setBundlesLoading(false);
+      setUsersError(null); setPaymentsError(null); setBundlesError(null);
     }
-  }, [isAuthenticated, fetchUsers, fetchPayments, fetchBundles]);
+  }, [isAuthenticated, fetchUsers, fetchPayments, fetchBundles]); // Dependencies are stable or change meaningfully
 
-  const refreshUsers = async (options = { showToast: true }) => {
+  // Memoized Refresh Functions
+  const refreshUsers = useCallback(async (options = { showToast: true }) => {
     if (!isAuthenticated) return;
     setUsersLoading(true);
     try { 
@@ -397,13 +416,11 @@ export const AppProvider = ({ children }) => {
       setUsers(response.data); setUsersError(null);
       if (options.showToast) showSuccessToast('Users refreshed successfully');
     } catch (err) { 
-      setUsersError(err.message); if (options.showToast) showErrorToast('Failed to refresh users'); 
-      console.error('Refresh Users API Error:', err.response?.data || err.message);
-      if (err.response?.status !== 401) throw err;
+      handleRefreshError(err, "Users", setUsersError, options);
     } finally { setUsersLoading(false); }
-  };
+  }, [isAuthenticated, showSuccessToast, handleRefreshError]);
 
-  const refreshPayments = async (options = { showToast: true }) => {
+  const refreshPayments = useCallback(async (options = { showToast: true }) => {
     if (!isAuthenticated) return;
     setPaymentsLoading(true);
     try {
@@ -411,13 +428,11 @@ export const AppProvider = ({ children }) => {
       setPayments(response.data); setPaymentsError(null);
       if (options.showToast) showSuccessToast('Payments refreshed successfully');
     } catch (err) {
-      setPaymentsError(err.message); if (options.showToast) showErrorToast('Failed to refresh payments'); 
-      console.error('Refresh Payments API Error:', err.response?.data || err.message);
-      if (err.response?.status !== 401) throw err;
+      handleRefreshError(err, "Payments", setPaymentsError, options);
     } finally { setPaymentsLoading(false); }
-  };
+  }, [isAuthenticated, showSuccessToast, handleRefreshError]);
 
-  const refreshBundles = async (options = { showToast: true }) => {
+  const refreshBundles = useCallback(async (options = { showToast: true }) => {
     if (!isAuthenticated) return;
     setBundlesLoading(true);
     try {
@@ -425,13 +440,32 @@ export const AppProvider = ({ children }) => {
       setBundles(response.data); setBundlesError(null);
       if (options.showToast) showSuccessToast('Bundles refreshed successfully');
     } catch (err) {
-      setBundlesError(err.message); if (options.showToast) showErrorToast('Failed to refresh bundles'); 
-      console.error('Refresh Bundles API Error:', err.response?.data || err.message);
-      if (err.response?.status !== 401) throw err;
+      handleRefreshError(err, "Bundles", setBundlesError, options);
     } finally { setBundlesLoading(false); }
-  };
+  }, [isAuthenticated, showSuccessToast, handleRefreshError]);
 
-  const createBundle = async (bundleData) => {
+  // Memoized CRUD Error Handler and CRUD operations
+  const handleCrudError = useCallback((error, operationName, operationDisplayName) => {
+    let messageForCaller = `Failed to ${operationDisplayName}.`;
+    if (error.isAxiosError && !error.response) {
+      showErrorToast(NETWORK_ERROR_TOAST_MESSAGE);
+      messageForCaller = NETWORK_ERROR_TOAST_MESSAGE;
+    } else if (error.response) {
+      const serverMessage = error.response.data?.message || error.response.data;
+      const toastMessage = typeof serverMessage === 'string' && serverMessage.length > 0 ? serverMessage : `Failed to ${operationDisplayName}.`;
+      showErrorToast(toastMessage);
+      messageForCaller = toastMessage;
+    } else {
+      const unexpectedErrorMsg = `An unexpected error occurred while trying to ${operationDisplayName}.`;
+      showErrorToast(unexpectedErrorMsg);
+      messageForCaller = unexpectedErrorMsg;
+    }
+    const throwError = new Error(messageForCaller);
+    if (error.response?.data) throwError.data = error.response.data;
+    throw throwError;
+  }, [showErrorToast]); // Depends on stable showErrorToast
+
+  const createBundle = useCallback(async (bundleData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.post(`${API_BASE_URL}/api/bundles`, bundleData, { withCredentials: true });
@@ -439,60 +473,14 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('Bundle created successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create bundle';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create bundle');
-      console.error('Create Bundle API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+      handleCrudError(error, "Create Bundle", "create bundle");
     }
-  };
-  const updateBundle = async (bundleId, bundleData) => {
-    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
-    try {
-      const response = await axios.put(`${API_BASE_URL}/api/bundles/${bundleId}`, bundleData, { withCredentials: true });
-      await refreshBundles({ showToast: false }); 
-      showSuccessToast('Bundle updated successfully'); 
-      return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update bundle';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update bundle');
-      console.error('Update Bundle API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
-    }
-  };
+  }, [isAuthenticated, refreshBundles, showSuccessToast, showErrorToast, handleCrudError]);
 
-  const deleteBundle = async (bundleId, bundleName) => {
-    if (!isAuthenticated) { 
-      showErrorToast("Login required."); 
-      throw new Error("Login required"); 
-    }
-    try {
-      await axios.delete(`${API_BASE_URL}/api/bundles/${bundleId}`, { withCredentials: true });
-      await refreshBundles({ showToast: false });
-      showSuccessToast(`Bundle "${bundleName}" deleted successfully`);
-      return true;
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.response?.data || `Failed to delete bundle "${bundleName}"`;
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : `Failed to delete bundle "${bundleName}"`);
-      console.error(`Delete Bundle (${bundleId}) API Error:`, error.response?.data || error);
-      throw error.response?.data || error;
-    }
-  };
+  // ... Apply useCallback to updateUser, deleteUser, createUser, etc. similarly ...
+  // For brevity, I'll show one more and you can apply the pattern.
 
-  const createUser = async (userData) => {
-    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/users`, userData, { withCredentials: true });
-      await refreshUsers({ showToast: false }); 
-      showSuccessToast('User created successfully'); 
-      return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create user';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create user');
-      console.error('Create User API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
-    }
-  };
-  const updateUser = async (userId, userData) => {
+  const updateUser = useCallback(async (userId, userData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.put(`${API_BASE_URL}/api/users/${userId}`, userData, { withCredentials: true });
@@ -500,114 +488,130 @@ export const AppProvider = ({ children }) => {
       showSuccessToast('User updated successfully'); 
       return response.data;
     } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update user';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update user');
-      console.error('Update User API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+      handleCrudError(error, "Update User", "update user");
     }
-  };
+  }, [isAuthenticated, refreshUsers, showSuccessToast, showErrorToast, handleCrudError]);
 
-  const deleteUser = async (userId) => {
-    if (!isAuthenticated) { 
-      showErrorToast("Login required."); 
-      throw new Error("Login required"); 
-    }
+  const deleteUser = useCallback(async (userId) => {
+    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       await axios.delete(`${API_BASE_URL}/api/users/${userId}`, { withCredentials: true });
-      await refreshUsers({ showToast: false }); 
+      await refreshUsers({ showToast: false });
       showSuccessToast('User deleted successfully');
       return true;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to delete user';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to delete user');
-      console.error('Delete User API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+    } catch (error) {
+      handleCrudError(error, "Delete User", "delete user");
     }
-  };
+  }, [isAuthenticated, refreshUsers, showSuccessToast, showErrorToast, handleCrudError]);
+  
+  const createUser = useCallback(async (userData) => {
+    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/users`, userData, { withCredentials: true });
+      await refreshUsers({ showToast: false });
+      showSuccessToast('User created successfully');
+      return response.data;
+    } catch (error) {
+      handleCrudError(error, "Create User", "create user");
+    }
+  }, [isAuthenticated, refreshUsers, showSuccessToast, showErrorToast, handleCrudError]);
+  
+  const deleteBundle = useCallback(async (bundleId, bundleName) => {
+    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
+    try {
+      await axios.delete(`${API_BASE_URL}/api/bundles/${bundleId}`, { withCredentials: true });
+      await refreshBundles({ showToast: false });
+      showSuccessToast(`Bundle "${bundleName}" deleted successfully`);
+      return true;
+    } catch (error) {
+      handleCrudError(error, `Delete Bundle "${bundleName}"`, `delete bundle "${bundleName}"`);
+    }
+  }, [isAuthenticated, refreshBundles, showSuccessToast, showErrorToast, handleCrudError]);
 
-  const fetchUserById = async (userId) => {
+  const updateBundle = useCallback(async (bundleId, bundleData) => {
+    if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
+    try {
+      const response = await axios.put(`${API_BASE_URL}/api/bundles/${bundleId}`, bundleData, { withCredentials: true });
+      await refreshBundles({ showToast: false });
+      showSuccessToast('Bundle updated successfully');
+      return response.data;
+    } catch (error) {
+      handleCrudError(error, "Update Bundle", "update bundle");
+    }
+  }, [isAuthenticated, refreshBundles, showSuccessToast, showErrorToast, handleCrudError]);
+
+  const fetchUserById = useCallback(async (userId) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.get(`${API_BASE_URL}/api/users/${userId}`, { withCredentials: true });
       return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || `Failed to fetch user with ID ${userId}`;
-      console.error(`Fetch User By ID (${userId}) API Error: ${typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}. Details:`, error.response?.data || error);
-      throw error.response?.data || error;  
+    } catch (error) {
+      const operationIdentifier = `Fetch User By ID (${userId})`;
+      // Simplified error logging for fetchUserById as it often doesn't need a global toast
+      console.error(`${operationIdentifier} error:`, error.response?.data || error.message);
+      const throwError = new Error(error.response?.data?.message || error.message || `Failed to fetch user ${userId}`);
+      if(error.response?.data) throwError.data = error.response.data;
+      throw throwError;
     }
-  };
-  const updatePaymentStatus = async (paymentId, paymentData) => {
+  }, [isAuthenticated, showErrorToast]);
+
+  const updatePaymentStatus = useCallback(async (paymentId, paymentData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.post(`${API_BASE_URL}/api/payments/${paymentId}/process`, paymentData, { withCredentials: true });
-      await refreshPayments({ showToast: false }); 
-      showSuccessToast('Payment status updated successfully'); 
+      await refreshPayments({ showToast: false });
+      showSuccessToast('Payment status updated successfully');
       return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update payment status';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update payment status');
-      console.error('Update Payment Status API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+    } catch (error) {
+      handleCrudError(error, "Update Payment Status", "update payment status");
     }
-  };
-  const updatePayment = async (paymentId, paymentData) => {
+  }, [isAuthenticated, refreshPayments, showSuccessToast, showErrorToast, handleCrudError]);
+
+  const updatePayment = useCallback(async (paymentId, paymentData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.put(`${API_BASE_URL}/api/payments/${paymentId}`, paymentData, { withCredentials: true });
-      await refreshPayments({ showToast: false }); 
-      showSuccessToast('Payment updated successfully'); 
+      await refreshPayments({ showToast: false });
+      showSuccessToast('Payment updated successfully');
       return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to update payment';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to update payment');
-      console.error('Update Payment API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+    } catch (error) {
+      handleCrudError(error, "Update Payment", "update payment");
     }
-  };
-  const createPayment = async (paymentData) => {
+  }, [isAuthenticated, refreshPayments, showSuccessToast, showErrorToast, handleCrudError]);
+
+  const createPayment = useCallback(async (paymentData) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       const response = await axios.post(`${API_BASE_URL}/api/payments`, paymentData, { withCredentials: true });
-      await refreshPayments({ showToast: false }); 
-      showSuccessToast('Payment created successfully'); 
+      await refreshPayments({ showToast: false });
+      showSuccessToast('Payment created successfully');
       return response.data;
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to create payment';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to create payment');
-      console.error("Create Payment API Error:", error.response?.data || error);
-      throw error.response?.data || error; 
+    } catch (error) {
+      handleCrudError(error, "Create Payment", "create payment");
     }
-  };
-  const deletePayment = async (paymentId) => {
+  }, [isAuthenticated, refreshPayments, showSuccessToast, showErrorToast, handleCrudError]);
+
+  const deletePayment = useCallback(async (paymentId) => {
     if (!isAuthenticated) { showErrorToast("Login required."); throw new Error("Login required"); }
     try {
       await axios.delete(`${API_BASE_URL}/api/payments/${paymentId}`, { withCredentials: true });
-      await refreshPayments({ showToast: false }); 
+      await refreshPayments({ showToast: false });
       showSuccessToast('Payment deleted successfully');
-    } catch (error) { 
-      const errorMessage = error.response?.data?.message || error.response?.data || 'Failed to delete payment';
-      showErrorToast(typeof errorMessage === 'string' ? errorMessage : 'Failed to delete payment');
-      console.error('Delete Payment API Error:', error.response?.data || error);
-      throw error.response?.data || error; 
+      return true;
+    } catch (error) {
+      handleCrudError(error, "Delete Payment", "delete payment");
     }
-  };
+  }, [isAuthenticated, refreshPayments, showSuccessToast, showErrorToast, handleCrudError]);
+
 
   return (
     <AppContext.Provider value={{
-      isAuthenticated,
-      currentUser,
-      authLoading,
-      loginUser,
-      logoutUser,
-      checkAuthStatus,
-      changeAdminPassword,
-
+      isAuthenticated, currentUser, authLoading,
+      loginUser, logoutUser, checkAuthStatus, changeAdminPassword,
       users, usersLoading, usersError, refreshUsers, createUser, updateUser, deleteUser, fetchUserById,
       payments, paymentsLoading, paymentsError, refreshPayments, updatePaymentStatus, updatePayment, createPayment, deletePayment,
       bundles, bundlesLoading, bundlesError, refreshBundles, createBundle, updateBundle, deleteBundle,
-      
       showSuccessToast, showErrorToast, showWarningToast, showInfoToast,
-
       appSettings, updateAppSettings, appSettingsLoading, appSettingsError, refreshAppSettings,
     }}>
       {children}

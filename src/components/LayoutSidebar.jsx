@@ -14,6 +14,7 @@ import {
   KeyFill
 } from "react-bootstrap-icons";
 import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify'; // Import toast for direct dismissal
 import AppContext from '../context/AppContext';
 import './styles/LayoutSidebar.css';
 import ChangePasswordModal from './ChangePasswordModal';
@@ -38,6 +39,7 @@ const LayoutSidebar = () => {
     showSuccessToast: contextShowSuccessToast,
     showErrorToast: contextShowErrorToast,
     showInfoToast: contextShowInfoToast,
+    showWarningToast: contextShowWarningToast, // Ensure this is available from context
     usersError,
     paymentsError,
     bundlesError,
@@ -81,6 +83,38 @@ const LayoutSidebar = () => {
       setSidebarOpen(false);
     }
   }, [location, isMobile]);
+
+  // Effect for handling online/offline status
+  useEffect(() => {
+    const OFFLINE_TOAST_ID = "app-offline-toast";
+
+    const handleOffline = () => {
+      contextShowWarningToast(
+        "You are currently offline. Some features may be unavailable.",
+        { toastId: OFFLINE_TOAST_ID, autoClose: false, close }
+      );
+    };
+
+    const handleOnline = () => {
+      toast.dismiss(OFFLINE_TOAST_ID); // Dismiss the specific offline toast
+      contextShowSuccessToast("You are back online!"); // Show "back online" message
+    };
+
+    // Check initial status
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+      toast.dismiss(OFFLINE_TOAST_ID); // Clean up toast on unmount
+    };
+  }, [contextShowSuccessToast, contextShowWarningToast]);
+
 
   const toggleSidebar = () => {
     const newSidebarState = !sidebarOpen;
