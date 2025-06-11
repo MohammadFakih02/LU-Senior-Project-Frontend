@@ -115,6 +115,27 @@ const LayoutSidebar = () => {
     };
   }, [contextShowSuccessToast, contextShowWarningToast]);
 
+  // Effect to fix 100vh issue on mobile browsers (especially iOS)
+  useEffect(() => {
+    // This function calculates the actual viewport height (excluding browser UI) 
+    // and sets it as a CSS custom property '--vh'.
+    const setDynamicVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+    };
+
+    // Set the value on initial component mount
+    setDynamicVh();
+
+    // Add event listener to recalculate on resize (e.g., orientation change)
+    window.addEventListener('resize', setDynamicVh);
+
+    // Cleanup function to remove the event listener when the component unmounts
+    return () => {
+      window.removeEventListener('resize', setDynamicVh);
+    };
+  }, []); // Empty dependency array ensures this runs only once.
+
 
   const toggleSidebar = () => {
     const newSidebarState = !sidebarOpen;
